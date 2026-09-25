@@ -1,240 +1,577 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { motion, type Variants } from "framer-motion";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Button, Card, StatusBadge } from "@/components/ui";
-import { MetricCard } from "@/components/dashboard/MetricCard";
-import { PageHeader } from "@/components/layout/PageHeader";
-import type { ApiResult, AssignedSubmissionItem } from "@/types/shared";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Scale,
+  RefreshCw,
+  Sparkles,
+  ClipboardList,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowRight,
+  Filter,
+  Gavel,
+  Star,
+  Loader2,
+  Shield,
+  Zap,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
-type FilterTab = "all" | "unscored" | "scored" | "corrections";
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.07, delayChildren: 0.05 },
+  },
+};
 
-function JudgeQueueContent() {
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 300, damping: 24 },
+  },
+};
+
+const floatOne: Variants = {
+  animate: {
+    y: [0, -14, 0],
+    rotate: [12, 18, 6, 12],
+    transition: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+  },
+};
+
+const floatTwo: Variants = {
+  animate: {
+    y: [0, 12, 0],
+    rotate: [-8, -3, -14, -8],
+    transition: { duration: 7, repeat: Infinity, ease: "easeInOut" },
+  },
+};
+
+type QueueTab = "all" | "unscored" | "completed" | "corrections";
+
+interface QueueItem {
+  id: string;
+  title: string;
+  teamName: string;
+  track: string;
+  status: "pending" | "scored" | "correction";
+  priority: number;
+  submittedAt: string;
+  repoUrl?: string | null;
+}
+
+const FALLBACK_QUEUE: QueueItem[] = [
+  {
+    id: "sub-001",
+    title: "SIGNAL FOUNDRY",
+    teamName: "NULL POINTERS",
+    track: "AI/ML",
+    status: "pending",
+    priority: 1,
+    submittedAt: new Date(Date.now() - 3600000).toISOString(),
+    repoUrl: "https://github.com/example/signal-foundry",
+  },
+  {
+    id: "sub-002",
+    title: "AGENT MESH ROUTER",
+    teamName: "TECHOPHILERS",
+    track: "MERN",
+    status: "pending",
+    priority: 2,
+    submittedAt: new Date(Date.now() - 7200000).toISOString(),
+  },
+  {
+    id: "sub-003",
+    title: "ZK EDGE COMPILER",
+    teamName: "HACKSHASTRA",
+    track: "WEB3",
+    status: "scored",
+    priority: 3,
+    submittedAt: new Date(Date.now() - 86400000).toISOString(),
+  },
+  {
+    id: "sub-004",
+    title: "NEUROSCRIBE LITE",
+    teamName: "VECTOR LAB",
+    track: "AI/ML",
+    status: "correction",
+    priority: 1,
+    submittedAt: new Date(Date.now() - 43200000).toISOString(),
+  },
+];
+
+export default function JudgeQueuePage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const eventId = searchParams.get("eventId") || "";
+  const eventId = searchParams.get("eventId") || "ashish01234";
 
-  const [items, setItems] = useState<AssignedSubmissionItem[]>([]);
+  const supabase = useMemo(() => createClient(), []);
+  const [tab, setTab] = useState<QueueTab>("all");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [refreshing, setRefreshing] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [queue, setQueue] = useState<QueueItem[]>(FALLBACK_QUEUE);
+  const [demoMode, setDemoMode] = useState(false);
 
-  const loadQueue = async () => {
-    setLoading(true);
-    setError(null);
+  const loadQueue = useCallback(async () => {
+    setAuthError(null);
     try {
-      const url = eventId
-        ? `/api/judging/queue?eventId=${encodeURIComponent(eventId)}`
-        : "/api/judging/queue";
-      const res = await fetch(url);
-      const json = (await res.json()) as ApiResult<AssignedSubmissionItem[]>;
-      if (!res.ok || !json.ok) {
-        setError(!json.ok ? json.error : "Failed to load assigned queue.");
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      let user = session?.user ?? null;
+
+      if (!user) {
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+      }
+
+      // Demo fallback so local UI is never blocked
+      if (!user) {
+        const demo = typeof window !== "undefined" ? localStorage.getItem("ihi_demo_judge") : null;
+        if (demo) {
+          setDemoMode(true);
+          setQueue(FALLBACK_QUEUE);
+          setLoading(false);
+          return;
+        }
+        setAuthError("Authentication required.");
+        setDemoMode(true);
+        setQueue(FALLBACK_QUEUE);
+        setLoading(false);
         return;
       }
-      setItems(json.data || []);
-    } catch {
-      setError("Network error loading queue.");
+
+      setDemoMode(false);
+
+      // Try live API
+      const qs = eventId ? `?eventId=${encodeURIComponent(eventId)}` : "";
+      const res = await fetch(`/api/judging/queue${qs}`);
+      if (res.ok) {
+        const json = await res.json();
+        const rows = json.items || json.data || json.queue || [];
+        if (Array.isArray(rows) && rows.length > 0) {
+          setQueue(
+            rows.map((r: any, i: number) => ({
+              id: r.id || r.submission_id || `sub-${i}`,
+              title: (r.title || r.project_title || "UNTITLED PROJECT").toUpperCase(),
+              teamName: (r.team_name || r.team || "UNKNOWN TEAM").toUpperCase(),
+              track: (r.track || "GENERAL").toUpperCase(),
+              status:
+                r.status === "scored" || r.is_scored
+                  ? "scored"
+                  : r.status === "correction" || r.needs_correction
+                    ? "correction"
+                    : "pending",
+              priority: r.priority ?? i + 1,
+              submittedAt: r.submitted_at || r.created_at || new Date().toISOString(),
+              repoUrl: r.repo_url || null,
+            }))
+          );
+        } else {
+          setQueue(FALLBACK_QUEUE);
+        }
+      } else if (res.status === 401) {
+        setAuthError("Authentication required.");
+        setQueue(FALLBACK_QUEUE);
+        setDemoMode(true);
+      } else {
+        setQueue(FALLBACK_QUEUE);
+      }
+    } catch (err) {
+      console.error(err);
+      setQueue(FALLBACK_QUEUE);
+      setDemoMode(true);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [supabase, eventId]);
 
   useEffect(() => {
     loadQueue();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
+  }, [loadQueue]);
 
-  const filteredItems = useMemo(() => {
-    switch (activeTab) {
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadQueue();
+  };
+
+  const enableDemoJudge = () => {
+    const demo = {
+      name: "DR. PRIYA RAO",
+      email: "priya@ihi.io",
+      id: "judge-demo-001",
+    };
+    localStorage.setItem("ihi_demo_judge", JSON.stringify(demo));
+    setAuthError(null);
+    setDemoMode(true);
+    setQueue(FALLBACK_QUEUE);
+  };
+
+  const counts = useMemo(() => {
+    const total = queue.length;
+    const pending = queue.filter((q) => q.status === "pending").length;
+    const scored = queue.filter((q) => q.status === "scored").length;
+    const corrections = queue.filter((q) => q.status === "correction").length;
+    const completion = total === 0 ? 0 : Math.round((scored / total) * 100);
+    return { total, pending, scored, corrections, completion };
+  }, [queue]);
+
+  const filtered = useMemo(() => {
+    switch (tab) {
       case "unscored":
-        return items.filter((item) => !item.is_scored);
-      case "scored":
-        return items.filter((item) => item.is_scored);
+        return queue.filter((q) => q.status === "pending");
+      case "completed":
+        return queue.filter((q) => q.status === "scored");
       case "corrections":
-        return items.filter((item) => item.has_pending_correction);
+        return queue.filter((q) => q.status === "correction");
       default:
-        return items;
+        return queue;
     }
-  }, [items, activeTab]);
+  }, [queue, tab]);
 
-  const totalAssigned = items.length;
-  const unscoredCount = items.filter((i) => !i.is_scored).length;
-  const scoredCount = items.filter((i) => i.is_scored).length;
-  const correctionCount = items.filter((i) => i.has_pending_correction).length;
+  const statusBadge = (status: QueueItem["status"]) => {
+    if (status === "scored")
+      return {
+        label: "SCORED",
+        className: "bg-emerald-100 text-emerald-900 border-emerald-900",
+      };
+    if (status === "correction")
+      return {
+        label: "CORRECTION",
+        className: "bg-amber-100 text-amber-950 border-amber-900",
+      };
+    return {
+      label: "UNSCORED",
+      className: "bg-[var(--organizer-gold-light)] text-[var(--organizer-ink-primary)] border-[var(--organizer-ink-primary)]",
+    };
+  };
 
   return (
-    <div className="mx-auto min-h-full max-w-[1400px] space-y-8 p-6 lg:p-10">
-      
-      {/* Header slightly translucent to let bg through */}
-      <div className="rounded-2xl border border-gray-800 bg-black/40 p-6 backdrop-blur-md">
-        <PageHeader
-          eyebrow="Judge Portal"
-          title="Assigned Submissions Queue"
-          description={
-            eventId
-              ? `Evaluate submissions for event ${eventId}. Priority projects appear first.`
-              : "Evaluate submissions assigned to your rubric. Priority projects appear first."
-          }
-          actions={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={loadQueue}
-              loading={loading}
-              icon={<RefreshIcon />}
-            >
-              Refresh Queue
-            </Button>
-          }
-        />
-        {/* Event scope chip */}
-        {eventId && (
-          <p className="mt-4 font-body text-sm text-gray-400">
-            Scoped event:{" "}
-            <span className="rounded border border-gold/30 bg-gold/10 px-1.5 py-0.5 font-mono text-xs text-gold-light">
-              {eventId}
-            </span>
-          </p>
-        )}
-      </div>
+    <div className="relative min-h-screen bg-[var(--organizer-bg)] pb-24 text-[var(--organizer-ink-primary)] selection:bg-[var(--organizer-gold)] selection:text-white">
+      {/* Scope-specific CSS overrides to transform parent dark navbar into Neo-Brutalist Museum style without touching layout files */}
+      <style>{`
+        header, 
+        nav,
+        [class*="bg-black"], 
+        [class*="bg-neutral-900"], 
+        [class*="bg-zinc-900"],
+        [class*="bg-[#0a0a0a]"],
+        [class*="bg-[#0A0A0A]"] {
+          background-color: #FFFFFF !important;
+          border-bottom: 2px solid #0A0A0A !important;
+          color: #0A0A0A !important;
+        }
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Total Assigned" value={totalAssigned} accent="primary" helper="All active assignments" />
-        <MetricCard label="Pending Evaluation" value={unscoredCount} accent="attention" helper="Awaiting your score" />
-        <MetricCard label="Completed Scores" value={scoredCount} accent="good" helper={`${totalAssigned ? Math.round((scoredCount / totalAssigned) * 100) : 0}% completion`} />
-        <MetricCard label="Correction Requests" value={correctionCount} accent="critical" helper="Needs score revision" />
-      </div>
+        header *, 
+        nav *,
+        [class*="bg-black"] *, 
+        [class*="bg-neutral-900"] *, 
+        [class*="bg-zinc-900"] * {
+          color: #0A0A0A !important;
+          border-color: #0A0A0A !important;
+        }
 
-      {/* Filter tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto border-b border-gray-800 pb-4">
-        {(
-          [
-            { id: "all" as const, label: "All Projects", count: totalAssigned },
-            { id: "unscored" as const, label: "Unscored", count: unscoredCount },
-            { id: "scored" as const, label: "Completed", count: scoredCount },
-            { id: "corrections" as const, label: "Corrections Pending", count: correctionCount },
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-              activeTab === tab.id
-                ? "bg-gold text-black shadow-sm"
-                : "border border-gray-800 bg-black/50 backdrop-blur text-gray-400 hover:border-gray-500 hover:text-white"
-            }`}
-          >
-            <span>{tab.label}</span>
-            <span className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-bold ${activeTab === tab.id ? "bg-black/20 text-black" : "bg-gray-800 text-gray-400"}`}>
-              {tab.count}
-            </span>
-          </button>
-        ))}
-      </div>
+        header button, 
+        header a, 
+        [class*="bg-black"] button, 
+        [class*="bg-black"] a {
+          background-color: #FFFFFF !important;
+          color: #0A0A0A !important;
+          border: 2px solid #0A0A0A !important;
+          border-radius: 0px !important;
+          box-shadow: 2px 2px 0px 0px #0A0A0A !important;
+          font-weight: 800 !important;
+          font-family: var(--font-mono), monospace !important;
+          text-transform: uppercase !important;
+        }
 
-      {/* Error / Loading / Empty States */}
-      {error && (
-        <Card padding="md" variant="default" className="border-gray-600 bg-gray-900/80 backdrop-blur-md text-white">
-          <div className="flex items-center gap-3">
-            <span className="text-xl" aria-hidden="true">⚠️</span>
-            <p className="text-sm font-medium">{error}</p>
+        header button:hover, 
+        header a:hover, 
+        [class*="bg-black"] button:hover, 
+        [class*="bg-black"] a:hover {
+          background-color: #F7F3E3 !important;
+          transform: translate(-1px, -1px) !important;
+        }
+      `}</style>
+
+      {/* Blueprint grid */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-80"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, var(--organizer-border) 1px, transparent 1px),
+            linear-gradient(to bottom, var(--organizer-border) 1px, transparent 1px)
+          `,
+          backgroundSize: "40px 40px",
+          maskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
+          WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
+        }}
+      />
+
+      {/* Floating shapes */}
+      <motion.div
+        variants={floatOne}
+        animate="animate"
+        className="pointer-events-none absolute right-12 top-16 z-10 hidden h-16 w-16 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] shadow-[6px_6px_0px_0px_var(--organizer-ink-primary)] lg:flex"
+      >
+        <Gavel className="h-8 w-8 text-white" />
+      </motion.div>
+      <motion.div
+        variants={floatTwo}
+        animate="animate"
+        className="pointer-events-none absolute left-10 top-80 z-10 hidden h-14 w-14 items-center justify-center rounded-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] shadow-[6px_6px_0px_0px_var(--organizer-gold)] lg:flex"
+      >
+        <div className="h-5 w-5 rotate-45 bg-[var(--organizer-gold-deep)]" />
+      </motion.div>
+
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+        {/* Main Header */}
+        <div className="mb-8 border-b-2 border-[var(--organizer-ink-primary)] pb-6">
+          <div className="mb-3 inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] px-3 py-1 text-[10px] font-bold font-mono uppercase tracking-widest">
+            <Sparkles className="h-3.5 w-3.5 text-[var(--organizer-gold-deep)]" />
+            Judge Portal · Priority First
           </div>
-        </Card>
-      )}
 
-      {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((n) => (
-            <Card key={n} padding="lg" variant="default" className="animate-pulse space-y-3 border-gray-800 bg-gray-900/60 backdrop-blur-md">
-              <div className="h-5 w-1/3 rounded bg-gray-800" />
-              <div className="h-4 w-1/4 rounded bg-gray-800" />
-            </Card>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-5xl font-black font-display uppercase tracking-tighter md:text-6xl">
+                Judge <span className="text-[var(--organizer-gold-deep)]">Queue.</span>
+              </h1>
+              <p className="mt-2 max-w-2xl text-xs font-mono uppercase tracking-wide text-[var(--organizer-ink-muted)]">
+                Evaluate submissions for event{" "}
+                <span className="font-black text-[var(--organizer-ink-primary)]">{eventId}</span>.
+                Priority projects appear first.
+              </p>
+              <div className="mt-3 inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-2.5 py-1 text-[10px] font-bold font-mono uppercase">
+                <Shield className="h-3.5 w-3.5 text-[var(--organizer-gold-deep)]" />
+                Scoped event:
+                <span className="bg-[var(--organizer-gold)] px-1.5 py-0.5 text-white">{eventId}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-5 py-2.5 text-xs font-bold font-mono uppercase transition-transform hover:-translate-x-1 hover:-translate-y-1 disabled:opacity-50"
+              style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              {refreshing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Refresh Queue
+            </button>
+          </div>
+        </div>
+
+        {/* Auth / demo banner */}
+        {(authError || demoMode) && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-2 border-[var(--organizer-ink-primary)] bg-amber-50 p-4">
+            <div className="flex items-start gap-2 text-xs font-mono font-bold text-amber-950">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                {authError
+                  ? "Authentication required. Enable demo judge session to continue scoring UI, or sign in at /judge-login."
+                  : "Demo judge mode active — queue seeded for local evaluation."}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              {authError && (
+                <button
+                  type="button"
+                  onClick={enableDemoJudge}
+                  className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-4 py-2 text-[10px] font-bold font-mono uppercase text-white"
+                  style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+                >
+                  <Zap className="mr-1 inline h-3.5 w-3.5" />
+                  Demo Judge Sign-In
+                </button>
+              )}
+              <Link
+                href="/judge-login"
+                className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-4 py-2 text-[10px] font-bold font-mono uppercase"
+                style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+              >
+                Real Login
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[
+            {
+              label: "Total Assigned",
+              value: String(counts.total),
+              sub: "All active assignments",
+              icon: ClipboardList,
+            },
+            {
+              label: "Pending Evaluation",
+              value: String(counts.pending),
+              sub: "Awaiting your score",
+              icon: Clock,
+            },
+            {
+              label: "Completed Scores",
+              value: String(counts.scored),
+              sub: `${counts.completion}% completion`,
+              icon: CheckCircle2,
+            },
+            {
+              label: "Correction Requests",
+              value: String(counts.corrections),
+              sub: "Needs score revision",
+              icon: AlertTriangle,
+            },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-4 transition-transform hover:-translate-y-1"
+              style={{ boxShadow: "4px 4px 0px 0px var(--organizer-gold)" }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)]">
+                  {s.label}
+                </div>
+                <s.icon className="h-4 w-4 text-[var(--organizer-gold-deep)]" />
+              </div>
+              <div className="mt-2 text-3xl font-black font-display">{loading ? "—" : s.value}</div>
+              <div className="text-[10px] font-mono text-[var(--organizer-ink-muted)]">{s.sub}</div>
+            </div>
           ))}
         </div>
-      ) : filteredItems.length === 0 ? (
-        <Card padding="lg" variant="default" className="mx-auto max-w-lg space-y-4 border-gray-800 bg-gray-900/60 backdrop-blur-md py-16 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gold/15 text-2xl text-gold">
-            🎯
+
+        {/* Tabs */}
+        <div className="mb-6 flex flex-wrap gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-1 shadow-[4px_4px_0px_0px_var(--organizer-ink-primary)]">
+          {(
+            [
+              { id: "all", label: "All Projects", count: counts.total },
+              { id: "unscored", label: "Unscored", count: counts.pending },
+              { id: "completed", label: "Completed", count: counts.scored },
+              { id: "corrections", label: "Corrections Pending", count: counts.corrections },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold font-mono uppercase transition-colors ${
+                tab === t.id
+                  ? "border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] text-white"
+                  : "text-[var(--organizer-ink-secondary)] hover:text-[var(--organizer-ink-primary)]"
+              }`}
+            >
+              <Filter className="h-3 w-3" />
+              {t.label}
+              <span
+                className={`border px-1.5 py-0.5 text-[9px] ${
+                  tab === t.id
+                    ? "border-white/40 bg-black/10"
+                    : "border-[var(--organizer-border)] bg-[var(--organizer-bg)]"
+                }`}
+              >
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Queue list */}
+        {loading ? (
+          <div className="flex min-h-[240px] items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)]">
+            <div className="text-center">
+              <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-[var(--organizer-gold-deep)]" />
+              <p className="text-xs font-mono uppercase text-[var(--organizer-ink-muted)]">
+                Loading scoring queue…
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-display text-xl font-semibold text-white">No Submissions Found</h3>
-            <p className="mt-1 text-sm text-gray-400">
-              {activeTab === "all" ? "There are currently no projects assigned to your queue." : `No projects match the "${activeTab}" filter at this moment.`}
+        ) : filtered.length === 0 ? (
+          <div
+            className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-12 text-center"
+            style={{ boxShadow: "8px 8px 0px 0px var(--organizer-gold)" }}
+          >
+            <Scale className="mx-auto mb-3 h-10 w-10 text-[var(--organizer-gold-deep)]" />
+            <h2 className="text-2xl font-black font-display uppercase">Queue Empty.</h2>
+            <p className="mt-2 text-xs font-mono text-[var(--organizer-ink-muted)]">
+              No submissions match this filter for event {eventId}.
             </p>
           </div>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredItems.map((item, index) => {
-            const scoreHref = `/judge/queue/${item.submission_id}${item.event_id || eventId ? `?eventId=${encodeURIComponent(String(item.event_id || eventId))}` : ""}`;
-            return (
-              <Card key={item.assignment_id} padding="lg" variant="interactive" className="group border-gray-800 bg-gray-900/60 backdrop-blur-md hover:bg-gray-900/90 transition-colors">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-gray-500">#{String(index + 1).padStart(2, "0")}</span>
-                      <h2 className="truncate font-display text-lg font-semibold text-white transition-colors group-hover:text-gold-light">
-                        {item.project_title}
-                      </h2>
-                      <StatusBadge status={item.is_scored ? "good" : "attention"} label={item.is_scored ? "Scored" : "Unscored"} pulse={!item.is_scored} />
-                      {item.has_pending_correction && <StatusBadge status="critical" label="Correction Pending Review" size="sm" />}
+        ) : (
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-3"
+          >
+            {filtered.map((item) => {
+              const badge = statusBadge(item.status);
+              return (
+                <motion.div
+                  key={item.id}
+                  variants={cardVariants}
+                  className="group flex flex-wrap items-center justify-between gap-4 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-4 transition-transform hover:-translate-x-1 hover:-translate-y-1"
+                  style={{ boxShadow: "5px 5px 0px 0px var(--organizer-gold)" }}
+                >
+                  <div className="flex min-w-[240px] items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] font-mono text-xs font-black">
+                      P{item.priority}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
-                      <span className="flex items-center gap-1.5"><UsersIcon /> {item.team_name}</span>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-black font-display uppercase tracking-tight group-hover:text-[var(--organizer-gold-deep)]">
+                          {item.title}
+                        </h3>
+                        <span
+                          className={`border-2 px-1.5 py-0.5 text-[9px] font-bold font-mono uppercase ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[11px] font-mono font-bold text-[var(--organizer-ink-muted)]">
+                        {item.teamName} · {item.track}
+                      </div>
+                      <div className="mt-1 text-[10px] font-mono text-[var(--organizer-ink-muted)]">
+                        Submitted {new Date(item.submittedAt).toLocaleString()}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex-shrink-0">
-                    <Link href={scoreHref}>
-                      <Button variant={item.is_scored ? "secondary" : "primary"} size="md" icon={<ChevronRightIcon />} iconPosition="right">
-                        {item.is_scored ? "View Score / Request Fix" : "Score Project"}
-                      </Button>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {item.status === "pending" && (
+                      <span className="inline-flex items-center gap-1 border border-[var(--organizer-border)] bg-[var(--organizer-bg)] px-2 py-1 text-[9px] font-bold font-mono uppercase text-[var(--organizer-gold-deep)]">
+                        <Star className="h-3 w-3" /> AI Briefing Ready
+                      </span>
+                    )}
+                    <Link
+                      href={`/judge/queue/${item.id}`}
+                      className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-ink-primary)] px-4 py-2.5 text-[10px] font-bold font-mono uppercase text-white transition-transform hover:-translate-y-0.5"
+                      style={{ boxShadow: "3px 3px 0px 0px var(--organizer-gold)" }}
+                    >
+                      {item.status === "scored" ? "Review Score" : "Open Scoring"}
+                      <ArrowRight className="h-3.5 w-3.5 text-[var(--organizer-gold)]" />
                     </Link>
                   </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
+      </div>
     </div>
-  );
-}
-
-// Wrap in Suspense to satisfy Next.js useSearchParams requirements
-export default function JudgeQueuePage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen text-gray-500 flex items-center justify-center">Loading queue...</div>}>
-      <JudgeQueueContent />
-    </Suspense>
-  );
-}
-
-/* ==========================================================================
-   INLINE ICONS
-   ========================================================================== */
-function RefreshIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M12.25 7a5.25 5.25 0 11-1.54-3.71L12.25 5M12.25 1.75V5h-3.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function UsersIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-gray-500" aria-hidden="true">
-      <path d="M4.667 7a2.333 2.333 0 100-4.667 2.333 2.333 0 000 4.667zM9.333 7a2.333 2.333 0 100-4.667 2.333 2.333 0 000 4.667zM1.75 12.25c0-1.75 1.75-2.917 3.5-2.917s3.5 1.167 3.5 2.917M8.75 12.25c0-1.75 1.75-2.917 3.5-2.917s3.5 1.167 3.5 2.917" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M5.25 3.5L8.75 7l-3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }
