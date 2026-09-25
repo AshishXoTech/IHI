@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { ContributionDay } from "@/types/shared";
+import type { ContributionDay } from "@/types/participant-hub";
 
 export async function GET(
   req: NextRequest,

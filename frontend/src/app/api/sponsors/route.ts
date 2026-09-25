@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { ApiResult, Sponsor } from "@/types/shared";
+import type { ApiResult } from "@/types/shared";
+import type { Sponsor } from "@/types/sponsor";
 
 /**
  * GET /api/sponsors

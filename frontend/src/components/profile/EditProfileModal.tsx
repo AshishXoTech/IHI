@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import { Button, Input } from "@/components/ui";
-import type { ParticipantProfile } from "@/types/shared";
+import type { ParticipantProfile } from "@/types/participant-hub";
 
 interface EditProfileModalProps {
   profile: ParticipantProfile;
@@ -48,7 +48,7 @@ export function EditProfileModal({ profile, isOpen, onClose, onSaved }: EditProf
       <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-[var(--organizer-surface)] border border-[var(--organizer-border)] shadow-xl">
         <div className="p-6 border-b border-[var(--organizer-border)] flex justify-between items-center bg-[var(--organizer-surface-hover)]">
           <h3 className="text-xl font-bold font-display text-[var(--organizer-ink-primary)]">Edit Profile</h3>
-          <button onClick={onClose} className="text-[var(--organizer-ink-muted)] hover:text-[var(--organizer-ink-primary)] transition-colors">✕</button>
+          <button onClick={onClose} className="text-[var(--organizer-ink-muted)] hover:text-[var(--organizer-ink-primary)] transition-colors">âœ•</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
@@ -6,7 +6,7 @@ import { motion, type Variants } from "framer-motion";
 import { Button, Input, Card } from "@/components/ui";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { LandingFooter } from "@/components/landing/LandingFooter";
-import type { Sponsor } from "@/types/shared";
+import type { Sponsor } from "@/types/sponsor";
 
 // Editorial Sponsor Tier Colors (Hard contrasted for the new style)
 const TIER_COLORS: Record<string, string> = {
@@ -112,7 +112,7 @@ export default function SponsorsPage() {
         className="absolute top-32 right-[5%] z-0 hidden lg:flex items-center justify-center w-32 h-32 rounded-3xl bg-[var(--organizer-gold)] border-4 border-[var(--organizer-ink-primary)] opacity-80"
         style={{ boxShadow: "8px 8px 0px 0px var(--organizer-ink-primary)", transform: "rotate(12deg)" }}
       >
-        <span className="text-5xl">✦</span>
+        <span className="text-5xl">âœ¦</span>
       </motion.div>
 
       <motion.div 
@@ -145,7 +145,7 @@ export default function SponsorsPage() {
               className="bg-[var(--organizer-gold)] text-[var(--organizer-ink-primary)] font-bold uppercase tracking-widest border-2 border-[var(--organizer-ink-primary)] hover:bg-[var(--organizer-gold-deep)] hover:text-white transition-all duration-200"
               style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
             >
-              Get Started →
+              Get Started â†’
             </Button>
           </Link>
         </div>
@@ -271,7 +271,7 @@ export default function SponsorsPage() {
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 text-xs font-black font-mono uppercase tracking-widest text-[var(--organizer-gold-deep)] hover:text-[var(--organizer-ink-primary)] transition-colors"
                     >
-                      Website ↗
+                      Website â†—
                     </a>
                     {sponsor.linkedin_company_page && (
                       <a

@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React from "react";
-import type { Badge } from "@/types/shared";
+import type { Badge } from "@/types/participant-hub";
 
 const TIER_STYLE = {
   common: "border-[var(--organizer-border)] bg-[var(--organizer-surface-hover)] text-[var(--organizer-ink-secondary)]",
@@ -31,7 +31,7 @@ export function BadgeGrid({ badges }: { badges: Badge[] }) {
                 <h4 className={`text-xs font-bold font-display truncate ${isUnlocked && b.tier === 'legendary' ? 'text-[var(--organizer-gold)]' : 'text-[var(--organizer-ink-primary)]'}`}>
                   {b.title}
                 </h4>
-                {!isUnlocked && <span className="text-[10px] text-[var(--organizer-ink-muted)]">🔒</span>}
+                {!isUnlocked && <span className="text-[10px] text-[var(--organizer-ink-muted)]">ðŸ”’</span>}
               </div>
               <p className={`text-[10px] line-clamp-2 leading-relaxed ${isUnlocked && b.tier === 'legendary' ? 'text-[var(--organizer-gold-champagne)]' : 'text-[var(--organizer-ink-secondary)]'}`}>
                 {b.description}

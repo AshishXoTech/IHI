@@ -5,7 +5,7 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, Card } from "@/components/ui";
 import { organizerNavigation } from "@/components/layout/navigation";
-import type { Sponsor } from "@/types/shared";
+import type { Sponsor } from "@/types/sponsor";
 
 // Semantic Badges
 function Badge({ type, label }: { type: 'success' | 'warning' | 'error' | 'neutral', label: string }) {

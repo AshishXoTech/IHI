@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { LeaderboardEntry } from "@/types/shared";
+import type { LeaderboardEntry } from "@/types/participant-hub";
 
 const SEED_LEADERBOARD: LeaderboardEntry[] = [
   {

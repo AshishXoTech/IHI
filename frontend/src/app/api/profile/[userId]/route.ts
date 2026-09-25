@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { ApiResult, ParticipantProfile } from "@/types/shared";
+import type { ApiResult } from "@/types/shared";
+import type { ParticipantProfile } from "@/types/participant-hub";
 
 const DEFAULT_PROFILE: ParticipantProfile = {
   id: "demo-id-1",
