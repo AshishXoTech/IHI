@@ -1,8 +1,8 @@
+import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { MotionProvider } from "@/components/providers/MotionProvider";
 import { ScrollProvider } from "@/components/providers/ScrollProvider";
-import "./globals.css";
 
 /* ==========================================================================
    FONT CONFIGURATIONS (spec §3.1)

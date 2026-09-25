@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { RoleTabs, type LoginRole } from "./RoleTabs";
 import { getCleanAuthErrorMessage } from "@/lib/auth/errors";
 import { getPostLoginRedirectUrl } from "@/lib/auth/roles";
+import { setAuthSession } from "@/lib/auth";
 
 interface LoginFormProps {
   /** Optional default event for judge magic link (from ?eventId=) */
@@ -81,6 +82,16 @@ export function LoginForm({ defaultEventId = "" }: LoginFormProps) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Invalid email or password.");
+
+      setAuthSession(
+        {
+          name: data.user?.name || email.trim().split("@")[0],
+          email: data.user?.email || email.trim(),
+          eventName: data.user?.eventName || "Stanford TreeHacks 2025",
+          role: data.user?.role || role,
+        },
+        data.token
+      );
 
       const next = search.get("next");
       const dest =
