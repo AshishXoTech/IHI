@@ -34,24 +34,21 @@ function normalizeAccent(accent: ProgressRingAccent): NormalizedRingAccent {
   return accent;
 }
 
-const colorMap: Record<NormalizedRingAccent, string> = {
-  primary: 'var(--accent)',
-  secondary: '#22d3ee',
-  good: 'var(--signal-good)',
-  attention: 'var(--signal-attention)',
-  critical: 'var(--signal-critical)',
-  neutral: 'var(--text-muted)',
+// Map rings dynamically to luxury branding gradients
+const colorMap: Record<NormalizedRingAccent, { from: string; to: string }> = {
+  primary: { from: '#C6A24A', to: '#A07F32' },
+  secondary: { from: '#C6A24A', to: '#FAF9F5' },
+  good: { from: '#C6A24A', to: '#A07F32' },
+  attention: { from: '#A07F32', to: '#E8D9A8' },
+  critical: { from: '#EF4444', to: '#991B1B' },
+  neutral: { from: '#706F6B', to: '#E6E5E0' },
 };
 
-/**
- * Animated Radial Progress Indicator supporting both Phase 2 Design System tokens
- * and legacy semantic aliases with zero layout thrash.
- */
 export function ProgressRing({
   value,
   max = 100,
   size = 140,
-  strokeWidth = 10,
+  strokeWidth = 8,
   label,
   sublabel,
   accent = 'primary',
@@ -65,7 +62,7 @@ export function ProgressRing({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (animatedPercent / 100) * circumference;
-  const mainColor = colorMap[normalized];
+  const gradientConfig = colorMap[normalized];
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -82,25 +79,22 @@ export function ProgressRing({
       <svg width={size} height={size} className="-rotate-90 transform">
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={mainColor} />
-            <stop
-              offset="100%"
-              stopColor={normalized === 'primary' ? '#22d3ee' : mainColor}
-            />
+            <stop offset="0%" stopColor={gradientConfig.from} />
+            <stop offset="100%" stopColor={gradientConfig.to} />
           </linearGradient>
         </defs>
 
-        {/* Outer/Background Track */}
+        {/* Muted underlying circular track */}
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--border-default)"
+          stroke="#F0EFEA"
           strokeWidth={strokeWidth}
         />
 
-        {/* Progress Arc Line */}
+        {/* Active Animated circular ring path */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -112,20 +106,20 @@ export function ProgressRing({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           style={{
-            transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            transition: 'stroke-dashoffset 1.4s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         />
       </svg>
 
-      {/* Center Label Content */}
+      {/* Embedded central data values */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
         {label && (
-          <span className="text-heading-sm font-display font-bold text-[var(--text-primary)] tabular-nums font-mono">
+          <span className="font-serif text-3xl font-black text-[#0A0A0A] tracking-tighter">
             {label}
           </span>
         )}
         {sublabel && (
-          <span className="text-label text-[var(--text-muted)] mt-0.5 font-medium">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-[#706F6B] mt-0.5">
             {sublabel}
           </span>
         )}

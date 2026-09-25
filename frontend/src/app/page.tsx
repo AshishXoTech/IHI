@@ -1,44 +1,40 @@
 import { HeroSection } from '@/components/landing/HeroSection';
-import { LogoStrip } from '@/components/landing/LogoStrip';
 import { FeaturesSection } from '@/components/landing/FeaturesSection';
+import { IHIEngineScene } from '@/components/landing/IHIEngineScene';
 import { DashboardPreview } from '@/components/landing/DashboardPreview';
 import { WorkflowSection } from '@/components/landing/WorkflowSection';
 import { PricingSection } from '@/components/landing/PricingSection';
-import { StatsSection } from '@/components/landing/StatsSection';
 import { CTASection } from '@/components/landing/CTASection';
 import { LandingNav } from '@/components/landing/LandingNav';
 import { LandingFooter } from '@/components/landing/LandingFooter';
-
 import { ProblemSection } from '@/components/landing/ProblemSection';
 import { SolutionSection } from '@/components/landing/SolutionSection';
 import { HowItWorksSection } from '@/components/landing/HowItWorksSection';
+import { ParachuteHacker } from '@/components/landing/ParachuteHacker';
+
 
 export default function LandingPage() {
   return (
-    /* Wrapped in Daylight Black/White/Gold styles */
-    <div className="min-h-screen bg-white text-black selection:bg-gold selection:text-black">
+    /* Wrapped in the new Blueprint Light Theme */
+    <div className="relative min-h-screen bg-white text-black bg-blueprint selection:bg-gold-light selection:text-black">
       <LandingNav />
-      <main id="main">
+      {/* Single premium parachute character — right side only */}
+      <ParachuteHacker />
+
+      {/* overflow-hidden prevents horizontal scroll from floating animations */}
+      <main id="main" className="relative z-10 flex flex-col w-full overflow-hidden">
         <HeroSection />
-        <LogoStrip />
-        
-        {/* Phase 1 Additions */}
         <ProblemSection />
         <SolutionSection />
-        
         <FeaturesSection />
+        <IHIEngineScene />
         <DashboardPreview />
-        
         <WorkflowSection />
-        {/* Phase 1 Addition (Unified interactive step-flow) */}
         <HowItWorksSection />
-        
-        {/* World-Class Light Mode Pricing Section */}
         <PricingSection />
-        
-        <StatsSection />
         <CTASection />
       </main>
+
       <LandingFooter />
     </div>
   );

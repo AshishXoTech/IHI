@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { SignupRoleTabs, type SignupRole } from "./SignupRoleTabs";
 import { getCleanAuthErrorMessage } from "@/lib/auth/errors";
 import { getPostLoginRedirectUrl } from "@/lib/auth/roles";
+import { setAuthSession } from "@/lib/auth";
 
 export function SignupForm() {
   const router = useRouter();
@@ -52,6 +53,16 @@ export function SignupForm() {
       
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create account.");
+
+      setAuthSession(
+        {
+          name: data.user?.name || name.trim(),
+          email: data.user?.email || email.trim(),
+          eventName: data.user?.eventName || "Stanford TreeHacks 2025",
+          role: data.user?.role || role,
+        },
+        data.token
+      );
 
       const dest = await getPostLoginRedirectUrl(data.user?.role || role);
       router.push(dest);
