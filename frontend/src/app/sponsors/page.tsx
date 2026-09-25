@@ -1,39 +1,103 @@
 ﻿"use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import React from "react";
 import { motion, type Variants } from "framer-motion";
-import { Button, Input, Card } from "@/components/ui";
-import { LandingNav } from "@/components/landing/LandingNav";
-import { LandingFooter } from "@/components/landing/LandingFooter";
-import type { Sponsor } from "@/types/sponsor";
+import {
+  Building2,
+  ExternalLink,
+  Award,
+  Zap,
+  ArrowRight,
+  PlusCircle,
+  Database,
+  Cpu,
+  Globe,
+  Layers,
+} from "lucide-react";
+import Link from "next/link";
 
-// Editorial Sponsor Tier Colors (Hard contrasted for the new style)
-const TIER_COLORS: Record<string, string> = {
-  Title: "bg-[var(--organizer-ink-primary)] text-[var(--organizer-gold)] border-[var(--organizer-ink-primary)]",
-  Platinum: "bg-[var(--organizer-gold)] text-[#FFFFFF] border-[var(--organizer-gold-deep)]",
-  Gold: "bg-[var(--organizer-gold-light)] text-[var(--organizer-gold-deep)] border-[var(--organizer-gold-champagne)]",
-  Silver: "bg-[var(--organizer-surface-hover)] text-[var(--organizer-ink-secondary)] border-[var(--organizer-border)]",
-  Bronze: "bg-[var(--organizer-surface)] text-[var(--organizer-ink-muted)] border-[var(--organizer-border-light)]",
-  "API Partner": "bg-emerald-50 text-emerald-800 border-emerald-200",
-  "In-Kind": "bg-[var(--organizer-surface-hover)] text-[var(--organizer-ink-secondary)] border-[var(--organizer-border)]",
-};
+interface Sponsor {
+  id: string;
+  name: string;
+  tagline: string;
+  tier: "Title Sponsor" | "Platinum Tier" | "Gold Tier" | "Silver Tier";
+  tierColor: string;
+  grantValue: string;
+  bountyTracks: string[];
+  description: string;
+  website: string;
+  icon: React.ReactNode;
+}
 
-// Framer Motion Variants explicitly typed to fix TS errors
+const DUMMY_SPONSORS: Sponsor[] = [
+  {
+    id: "anthropic",
+    name: "Anthropic",
+    tagline: "Frontier AI Safety & Claude 3.5 Models",
+    tier: "Title Sponsor",
+    tierColor: "bg-[var(--organizer-gold-light)] text-[var(--organizer-gold-deep)] border-[var(--organizer-ink-primary)]",
+    grantValue: "$25,000 API CREDITS",
+    bountyTracks: ["AI/ML Reasoning", "Agentic Systems", "AI Safety"],
+    description:
+      "Providing hackathon participants with direct access to Claude 3.5 Sonnet & Haiku APIs, offering dedicated technical mentorship and high-tier compute credits.",
+    website: "https://anthropic.com",
+    icon: <Cpu className="h-6 w-6 text-[var(--organizer-gold-deep)]" />,
+  },
+  {
+    id: "supabase",
+    name: "Supabase",
+    tagline: "The Open Source Firebase Alternative",
+    tier: "Platinum Tier",
+    tierColor: "bg-emerald-100 text-emerald-900 border-[var(--organizer-ink-primary)]",
+    grantValue: "$10,000 DB CREDITS",
+    bountyTracks: ["Realtime Apps", "Vector Search", "Database Architecture"],
+    description:
+      "Empowering hackers to build instant Postgres backends with Auth, Row Level Security, Edge Functions, and Vector Embeddings in minutes.",
+    website: "https://supabase.com",
+    icon: <Database className="h-6 w-6 text-emerald-700" />,
+  },
+  {
+    id: "solana",
+    name: "Solana Foundation",
+    tagline: "High-Performance Blockchain Infrastructure",
+    tier: "Gold Tier",
+    tierColor: "bg-purple-100 text-purple-900 border-[var(--organizer-ink-primary)]",
+    grantValue: "$15,000 PRIZE POOL",
+    bountyTracks: ["Web3 Payment Rails", "DeFi Innovation", "Solana Mobile"],
+    description:
+      "Sponsoring decentralized applications, high-throughput microtransactions, and Web3 user experience breakthroughs.",
+    website: "https://solana.com",
+    icon: <Layers className="h-6 w-6 text-purple-700" />,
+  },
+  {
+    id: "vercel",
+    name: "Vercel",
+    tagline: "Frontend Cloud & Next.js Ecosystem",
+    tier: "Silver Tier",
+    tierColor: "bg-blue-100 text-blue-900 border-[var(--organizer-ink-primary)]",
+    grantValue: "$5,000 INFRASTRUCTURE",
+    bountyTracks: ["Frontend UX", "Serverless Edge", "Developer Tools"],
+    description:
+      "Sponsoring instant global deployments, Next.js App Router integrations, and premium performance monitoring tools.",
+    website: "https://vercel.com",
+    icon: <Globe className="h-6 w-6 text-blue-700" />,
+  },
+];
+
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
-  show: {
+  visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.1 },
+    transition: { staggerChildren: 0.1, delayChildren: 0.1 },
   },
 };
 
 const cardVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
-  show: { 
-    opacity: 1, 
+  visible: {
+    opacity: 1,
     y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 24 }
+    transition: { type: "spring", stiffness: 300, damping: 24 },
   },
 };
 
@@ -41,257 +105,249 @@ const floatVariants: Variants = {
   animate: {
     y: [0, -15, 0],
     rotate: [0, 5, -5, 0],
-    transition: {
-      duration: 6,
-      repeat: Infinity,
-      ease: "easeInOut",
-    },
+    transition: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+  },
+};
+
+const floatVariantsReverse: Variants = {
+  animate: {
+    y: [0, 15, 0],
+    rotate: [0, -5, 5, 0],
+    transition: { duration: 7, repeat: Infinity, ease: "easeInOut" },
   },
 };
 
 export default function SponsorsPage() {
-  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIndustry, setSelectedIndustry] = useState<string>("All");
-
-  useEffect(() => {
-    async function loadSponsors() {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/sponsors?status=approved");
-        const json = await res.json();
-        if (json.ok && Array.isArray(json.data)) {
-          setSponsors(json.data);
-        } else {
-          setError(json.error || "Could not load sponsor directory.");
-        }
-      } catch {
-        setError("Network error loading sponsors.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadSponsors();
-  }, []);
-
-  const industries = ["All", ...Array.from(new Set(sponsors.map((s) => s.industry).filter(Boolean)))];
-
-  const filteredSponsors = sponsors.filter((s) => {
-    const matchesSearch =
-      s.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.technologies.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (s.sponsorship_criteria && s.sponsorship_criteria.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const matchesIndustry = selectedIndustry === "All" || s.industry === selectedIndustry;
-    return matchesSearch && matchesIndustry;
-  });
-
   return (
-    <div className="min-h-screen bg-[var(--organizer-bg)] text-[var(--organizer-ink-primary)] flex flex-col relative overflow-hidden">
-      
-      {/* 1. MLH-Style Blueprint Grid Background */}
+    <div className="relative min-h-screen bg-[var(--organizer-bg)] text-[var(--organizer-ink-primary)] selection:bg-[var(--organizer-gold)] selection:text-white pb-24 overflow-hidden">
+      {/* Blueprint Graph-Paper Background */}
       <div
-        className="absolute inset-0 z-0 pointer-events-none opacity-40"
+        className="pointer-events-none absolute inset-0 z-0 opacity-80"
         style={{
           backgroundImage: `
-            linear-gradient(var(--organizer-border) 1px, transparent 1px), 
-            linear-gradient(90deg, var(--organizer-border) 1px, transparent 1px)
+            linear-gradient(to right, var(--organizer-border) 1px, transparent 1px),
+            linear-gradient(to bottom, var(--organizer-border) 1px, transparent 1px)
           `,
           backgroundSize: "40px 40px",
-          maskImage: "linear-gradient(to bottom, black 40%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 100%)",
+          maskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
+          WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
         }}
       />
 
-      {/* 2. Floating Abstract Graphics */}
-      <motion.div 
-        variants={floatVariants} 
+      {/* Floating Framer Motion Shapes */}
+      <motion.div
+        variants={floatVariants}
         animate="animate"
-        className="absolute top-32 right-[5%] z-0 hidden lg:flex items-center justify-center w-32 h-32 rounded-3xl bg-[var(--organizer-gold)] border-4 border-[var(--organizer-ink-primary)] opacity-80"
-        style={{ boxShadow: "8px 8px 0px 0px var(--organizer-ink-primary)", transform: "rotate(12deg)" }}
+        className="pointer-events-none absolute top-16 right-12 z-0 hidden lg:block h-16 w-16 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)]"
+        style={{ boxShadow: "6px 6px 0px 0px var(--organizer-ink-primary)" }}
+      />
+      <motion.div
+        variants={floatVariantsReverse}
+        animate="animate"
+        className="pointer-events-none absolute bottom-32 left-8 z-0 hidden lg:block h-14 w-14 rounded-full border-2 border-[var(--organizer-ink-primary)] bg-white p-2"
       >
-        <span className="text-5xl">âœ¦</span>
+        <div className="h-full w-full rounded-full bg-[var(--organizer-gold-deep)]" />
       </motion.div>
 
-      <motion.div 
-        variants={floatVariants} 
-        animate="animate"
-        style={{ animationDelay: "1s" }}
-        className="absolute top-96 left-[2%] z-0 hidden lg:flex items-center justify-center w-24 h-24 rounded-full bg-[var(--organizer-surface)] border-4 border-[var(--organizer-ink-primary)] opacity-80"
-      >
-        <div className="w-10 h-10 bg-[var(--organizer-gold-deep)] rounded-full" />
-      </motion.div>
-
-      <LandingNav />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-16 lg:px-8 space-y-12 relative z-10">
+      {/* Page Shell Container */}
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
         
-        {/* Header Hero */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b-2 border-[var(--organizer-ink-primary)] pb-10">
-          <div className="space-y-4 max-w-2xl">
-            <h1 className="text-5xl md:text-7xl font-black font-display tracking-tighter text-[var(--organizer-ink-primary)] uppercase">
-              Sponsor <br/><span className="text-[var(--organizer-gold-deep)]">Directory.</span>
-            </h1>
-            <p className="text-[var(--organizer-ink-secondary)] text-lg leading-relaxed font-medium">
-              Discover the industry leaders, cloud platforms, and API partners powering modern developer hackathons through the IHI network.
-            </p>
+        {/* Navigation & Eyebrow */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-wider transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
+              style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              ← Home
+            </Link>
+            <span className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] px-3 py-1 text-[10px] font-bold font-mono uppercase tracking-widest">
+              IHI NETWORK · PARTNERS
+            </span>
           </div>
 
-          <Link href="/sponsors/register">
-            <Button
-              size="lg"
-              className="bg-[var(--organizer-gold)] text-[var(--organizer-ink-primary)] font-bold uppercase tracking-widest border-2 border-[var(--organizer-ink-primary)] hover:bg-[var(--organizer-gold-deep)] hover:text-white transition-all duration-200"
-              style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
-            >
-              Get Started â†’
-            </Button>
+          <Link
+            href="/sponsors/register"
+            className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-5 py-2.5 text-xs font-bold font-mono uppercase tracking-wider transition-transform hover:-translate-x-1 hover:-translate-y-1"
+            style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+          >
+            <PlusCircle className="h-4 w-4" /> Become a Sponsor
           </Link>
         </div>
 
-        {/* Search & Filter Controls */}
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-[var(--organizer-surface)] p-4 rounded-xl border-2 border-[var(--organizer-ink-primary)]" style={{ boxShadow: "4px 4px 0px 0px var(--organizer-border)" }}>
-          <div className="w-full sm:w-80">
-            <Input
-              placeholder="Search companies, tech, APIs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-[var(--organizer-bg)] border-[var(--organizer-border)] text-[var(--organizer-ink-primary)] font-mono focus:ring-[var(--organizer-gold)] focus:border-[var(--organizer-ink-primary)]"
-            />
-          </div>
+        {/* Display Title */}
+        <div className="mb-10">
+          <h1 className="text-5xl sm:text-7xl font-black font-display tracking-tighter uppercase">
+            GLOBAL <span className="text-[var(--organizer-gold-deep)]">SPONSORS.</span>
+          </h1>
+          <p className="mt-2 text-xs font-mono font-bold uppercase tracking-wider text-[var(--organizer-ink-muted)] max-w-2xl">
+            Industry leaders empowering hackers with API grants, infrastructure, and direct bounty prize pools across all IHI events.
+          </p>
+        </div>
 
-          <div className="flex gap-2 flex-wrap w-full sm:w-auto">
-            {industries.map((ind) => (
-              <button
-                key={ind}
-                onClick={() => setSelectedIndustry(ind)}
-                className={`px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider border-2 transition-all ${
-                  selectedIndustry === ind
-                    ? "bg-[var(--organizer-ink-primary)] border-[var(--organizer-ink-primary)] text-[var(--organizer-gold)]"
-                    : "bg-[var(--organizer-surface)] border-[var(--organizer-border)] text-[var(--organizer-ink-muted)] hover:border-[var(--organizer-ink-primary)] hover:text-[var(--organizer-ink-primary)]"
-                }`}
-              >
-                {ind}
-              </button>
-            ))}
+        {/* Global Impact Stats Strip */}
+        <div
+          className="mb-12 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-6"
+          style={{ boxShadow: "6px 6px 0px 0px var(--organizer-gold)" }}
+        >
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div>
+              <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)]">
+                Active Sponsors
+              </p>
+              <p className="text-3xl font-black font-mono mt-1">14+</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)]">
+                Total Grant Pool
+              </p>
+              <p className="text-3xl font-black font-mono mt-1 text-[var(--organizer-gold-deep)]">$150,000+</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)]">
+                Bounty Tracks
+              </p>
+              <p className="text-3xl font-black font-mono mt-1">28</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)]">
+                Projects Funded
+              </p>
+              <p className="text-3xl font-black font-mono mt-1">120+</p>
+            </div>
           </div>
         </div>
 
-        {/* Status Alerts */}
-        {error && (
-          <div className="p-4 border-2 border-red-500 bg-red-50 font-mono text-red-800 font-bold uppercase">
-            {error}
-          </div>
-        )}
-
-        {/* Animated Sponsor Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-72 rounded-xl border-2 border-[var(--organizer-border)] bg-[var(--organizer-surface)] animate-pulse p-6" />
-            ))}
-          </div>
-        ) : filteredSponsors.length === 0 ? (
-          <div className="text-center py-20 rounded-xl border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] space-y-6" style={{ boxShadow: "8px 8px 0px 0px var(--organizer-border)" }}>
-            <p className="text-xl font-bold font-display text-[var(--organizer-ink-muted)] uppercase tracking-widest">No matching partners found</p>
-            <Link href="/sponsors/register">
-              <Button size="lg" className="bg-[var(--organizer-ink-primary)] text-white border-2 border-[var(--organizer-ink-primary)]">
-                Register Your Company
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
-            {filteredSponsors.map((sponsor) => {
-              const tierBadgeClass = TIER_COLORS[sponsor.sponsorship_type] || TIER_COLORS.Silver;
-
-              return (
-                <motion.article
-                  variants={cardVariants}
-                  key={sponsor.id}
-                  // Neo-Brutalist Card Style
-                  className="rounded-xl border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-6 flex flex-col justify-between transition-transform duration-200 hover:-translate-y-2 hover:-translate-x-1 space-y-6"
-                  style={{ boxShadow: "6px 6px 0px 0px var(--organizer-gold)" }}
-                >
-                  <div className="space-y-5">
-                    <div className="flex items-start justify-between gap-3 border-b-2 border-[var(--organizer-border-light)] pb-4">
-                      <div>
-                        <h2 className="text-2xl font-black font-display text-[var(--organizer-ink-primary)] uppercase tracking-tight leading-none">
-                          {sponsor.company_name}
-                        </h2>
-                        <span className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mt-1 block">
-                          {sponsor.industry}
-                        </span>
-                      </div>
-                      <span className={`px-3 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider border-2 ${tierBadgeClass}`}>
-                        {sponsor.sponsorship_type}
-                      </span>
-                    </div>
-
-                    {sponsor.technologies && sponsor.technologies.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-[var(--organizer-ink-muted)]">
-                          Provided APIs
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {sponsor.technologies.map((tech) => (
-                            <span
-                              key={tech}
-                              className="px-2 py-1 rounded bg-[var(--organizer-bg)] border border-[var(--organizer-border)] text-xs font-mono font-semibold text-[var(--organizer-ink-secondary)]"
-                            >
-                              {tech}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {sponsor.sponsorship_criteria && (
-                      <div className="space-y-2 bg-[var(--organizer-surface-hover)] p-3 rounded-lg border border-[var(--organizer-border-light)]">
-                        <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-[var(--organizer-ink-muted)]">
-                          Sponsor Bounties
-                        </p>
-                        <p className="text-xs font-medium text-[var(--organizer-ink-secondary)] leading-relaxed">
-                          {sponsor.sponsorship_criteria}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-4 flex items-center justify-between">
-                    <a
-                      href={sponsor.website}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-black font-mono uppercase tracking-widest text-[var(--organizer-gold-deep)] hover:text-[var(--organizer-ink-primary)] transition-colors"
+        {/* Sponsors Grid */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 md:grid-cols-2 gap-8"
+        >
+          {DUMMY_SPONSORS.map((sponsor) => (
+            <motion.div
+              key={sponsor.id}
+              variants={cardVariants}
+              className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-6 flex flex-col justify-between transition-transform hover:-translate-y-1"
+              style={{ boxShadow: "6px 6px 0px 0px var(--organizer-gold)" }}
+            >
+              <div>
+                {/* Header Row */}
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="p-3 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)]"
+                      style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
                     >
-                      Website â†—
-                    </a>
-                    {sponsor.linkedin_company_page && (
-                      <a
-                        href={sponsor.linkedin_company_page}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] hover:text-[var(--organizer-ink-primary)] transition-colors"
-                      >
-                        LinkedIn
-                      </a>
-                    )}
+                      {sponsor.icon}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black font-display uppercase tracking-tight">
+                        {sponsor.name}
+                      </h3>
+                      <p className="text-[10px] font-bold font-mono uppercase tracking-wider text-[var(--organizer-ink-muted)]">
+                        {sponsor.tagline}
+                      </p>
+                    </div>
                   </div>
-                </motion.article>
-              );
-            })}
-          </motion.div>
-        )}
-      </main>
 
-      <LandingFooter />
+                  <span
+                    className={`inline-flex items-center border-2 px-2.5 py-1 text-[9px] font-bold font-mono uppercase tracking-widest ${sponsor.tierColor}`}
+                  >
+                    {sponsor.tier}
+                  </span>
+                </div>
+
+                {/* Description */}
+                <p className="text-xs font-mono text-[var(--organizer-ink-secondary)] leading-relaxed mb-6">
+                  {sponsor.description}
+                </p>
+
+                {/* Grant Value Box */}
+                <div className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] p-3 mb-6 flex items-center justify-between">
+                  <span className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-[var(--organizer-gold-deep)]" /> Active Grant
+                  </span>
+                  <span className="text-xs font-black font-mono text-[var(--organizer-gold-deep)] uppercase tracking-wider">
+                    {sponsor.grantValue}
+                  </span>
+                </div>
+
+                {/* Bounty Tracks */}
+                <div className="mb-6">
+                  <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-2">
+                    Sponsored Tracks
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {sponsor.bountyTracks.map((track) => (
+                      <span
+                        key={track}
+                        className="border border-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] px-2.5 py-1 text-[10px] font-bold font-mono uppercase tracking-wider"
+                      >
+                        {track}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="pt-4 border-t-2 border-[var(--organizer-border-light)] flex items-center justify-between">
+                <a
+                  href={sponsor.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold font-mono uppercase tracking-wider text-[var(--organizer-ink-muted)] hover:text-[var(--organizer-ink-primary)] transition-colors"
+                >
+                  Visit Website <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+
+                <Link
+                  href="/sponsors/register"
+                  className="inline-flex items-center gap-1 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-wider transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
+                  style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+                >
+                  Partner Details <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Sponsor Call-To-Action Banner */}
+        <motion.div
+          variants={cardVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="mt-16 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-8 sm:p-12 text-center relative overflow-hidden"
+          style={{ boxShadow: "6px 6px 0px 0px var(--organizer-gold)" }}
+        >
+          <div className="relative z-10 max-w-2xl mx-auto space-y-4">
+            <span className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] px-3 py-1 text-[10px] font-bold font-mono uppercase tracking-widest">
+              ORGANIZERS & ENTERPRISE
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black font-display tracking-tighter uppercase">
+              WANT TO SPONSOR <span className="text-[var(--organizer-gold-deep)]">AN EVENT?</span>
+            </h2>
+            <p className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--organizer-ink-muted)]">
+              Connect with elite builder talent, review automatic telemetry from developer submissions, and host custom bounty challenges.
+            </p>
+            <div className="pt-4 flex justify-center gap-4">
+              <Link
+                href="/sponsors/register"
+                className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-6 py-3 text-xs font-bold font-mono uppercase tracking-wider transition-transform hover:-translate-x-1 hover:-translate-y-1"
+                style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+              >
+                Register As Sponsor <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+
+      </div>
     </div>
   );
 }

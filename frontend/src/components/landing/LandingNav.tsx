@@ -13,6 +13,21 @@ export function LandingNav() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const sectionLinks = [
+    { label: "Problem", href: "#problem" },
+    { label: "Solution", href: "#solution" },
+    { label: "Features", href: "#features" },
+    { label: "How It Works", href: "#how-it-works" },
+    { label: "Pricing", href: "#pricing" },
+  ];
+
+  const portalLinks = [
+    { label: "Hackathons", href: "/hackathons" },
+    { label: "Sponsors", href: "/sponsors" },
+    { label: "Become a Sponsor", href: "/sponsors/register" },
+    { label: "Judge Portal", href: "/judge-login" },
+  ];
+
   return (
     <header
       className={clsx(
@@ -27,12 +42,10 @@ export function LandingNav() {
         {/* ── Premium Logo Block ── */}
         <Link href="/" className="group flex flex-col items-start gap-0.5">
           <div className="flex items-center gap-1.5">
-            {/* Opening brace */}
             <span className="font-display text-[1.75rem] font-black leading-none text-gray-300 transition-colors group-hover:text-gray-400">
               {"{"}
             </span>
 
-            {/* I H I — spaced, shadowed, distinct colors */}
             <div className="flex items-baseline gap-[3px]">
               <span
                 className="font-display text-[2rem] font-black leading-none tracking-tight transition-transform group-hover:-translate-y-0.5"
@@ -63,25 +76,29 @@ export function LandingNav() {
               </span>
             </div>
 
-            {/* Closing brace */}
             <span className="font-display text-[1.75rem] font-black leading-none text-gray-300 transition-colors group-hover:text-gray-400">
               {"}"}
             </span>
           </div>
 
-          {/* Tiny gold accent line under logo */}
           <div className="ml-1 h-[2px] w-0 rounded-full bg-gold transition-all duration-500 group-hover:w-[72px]" />
         </Link>
 
         {/* ── Desktop Nav ── */}
-        <nav className="hidden items-center gap-9 md:flex">
-          {[
-            { label: "Problem", href: "#problem" },
-            { label: "Solution", href: "#solution" },
-            { label: "Features", href: "#features" },
-            { label: "How It Works", href: "#how-it-works" },
-            { label: "Pricing", href: "#pricing" },
-          ].map((item) => (
+        <nav className="hidden items-center gap-7 lg:flex">
+          {sectionLinks.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="relative font-body text-[13px] font-semibold tracking-wide text-gray-600 transition-colors hover:text-black after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:rounded-full after:bg-gold after:transition-all after:duration-300 hover:after:w-full"
+            >
+              {item.label}
+            </Link>
+          ))}
+
+          <span className="h-4 w-px bg-gray-200" aria-hidden />
+
+          {portalLinks.map((item) => (
             <Link
               key={item.label}
               href={item.href}
