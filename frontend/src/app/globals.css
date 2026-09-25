@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   IHI DESIGN SYSTEM — WHITE / BLACK / GOLD (MLH / HackerEarth Style)
+   IHI DESIGN SYSTEM — "THE BLUEPRINT" (Premium Light Theme)
    ========================================================================== */
 
 :root {
@@ -36,9 +36,7 @@
 }
 
 @layer base {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     box-sizing: border-box;
   }
 
@@ -48,7 +46,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    scroll-behavior: auto;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -56,6 +54,7 @@
     color: var(--color-black);
     min-height: 100vh;
     line-height: 1.6;
+    overflow-x: hidden; /* Prevent horizontal scroll from floating icons */
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -70,7 +69,7 @@
   }
 
   ::selection {
-    background-color: var(--color-gold);
+    background-color: var(--color-gold-light);
     color: var(--color-black);
   }
 
@@ -79,21 +78,40 @@
     outline-offset: 2px;
     border-radius: 6px;
   }
+
+  /* Premium Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-gray-50);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-gray-200);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gold);
+  }
 }
 
 @layer utilities {
   /* Crisp Gold Gradient for Headlines */
   .text-gradient-gold {
-    color: var(--color-black); /* Solid fallback */
-    background: linear-gradient(135deg, #c9a227, #e4c65a);
+    color: var(--color-gold-dark); /* Solid fallback */
+    background: linear-gradient(135deg, #c9a227, #a4841c);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  
-  [data-register="tower"] .text-gradient-gold,
-  .theme-tower .text-gradient-gold {
-    color: var(--color-white);
+
+  /* The Blueprint Background */
+  .bg-blueprint {
+    background-image: 
+      linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 
   /* Section Spacing */
@@ -102,26 +120,38 @@
     padding-bottom: 64px;
   }
   @media (min-width: 768px) {
-    .section-py { padding-top: 80px; padding-bottom: 80px; }
+    .section-py { padding-top: 96px; padding-bottom: 96px; }
   }
   @media (min-width: 1024px) {
-    .section-py { padding-top: 120px; padding-bottom: 120px; }
+    .section-py { padding-top: 140px; padding-bottom: 140px; }
   }
 }
 
-/* --- Framer Motion CSS Fallbacks (from your original code) --- */
-@media (prefers-reduced-motion: no-preference) {
-  .ihi-reveal {
-    opacity: 0;
-    transform: translateY(16px);
-    transition: opacity var(--dur-slow) var(--ease-out), 
-                transform var(--dur-slow) var(--ease-out);
-  }
-  .ihi-reveal.is-visible {
-    opacity: 1;
-    transform: translateY(0);
+/* =========================================
+   NEW ORGANIZER DASHBOARD TOKENS 
+   ========================================= */
+@layer base {
+  :root {
+    --organizer-bg: #F9F9F6;
+    --organizer-surface: #FFFFFF;
+    --organizer-surface-hover: #FAF9F5;
+    --organizer-ink-primary: #0A0A0A;
+    --organizer-ink-secondary: #2C2C2A;
+    --organizer-ink-muted: #706F6B;
+    --organizer-border: #E6E5E0;
+    --organizer-border-light: #F0EFEA;
+    --organizer-gold: #C6A24A;
+    --organizer-gold-light: #F7F3E3;
+    --organizer-gold-deep: #A07F32;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .ihi-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+
+/* 3D Lift Cards for Dashboard */
+.card-3d-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-3d-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.08);
 }

@@ -6,18 +6,12 @@ type LogoSize = "sm" | "md" | "lg" | "xl";
 type LogoVariant = "full" | "icon" | "wordmark";
 
 interface LogoProps {
-  /**
-   * Optional navigation target.
-   * Leave undefined when a parent already wraps Logo in <Link>
-   * (avoids nested <a> hydration errors).
-   */
   href?: string;
   size?: LogoSize;
   variant?: LogoVariant;
   className?: string;
   showText?: boolean;
   priority?: boolean;
-  /** Inverts/pads logo plate on dark backgrounds */
   invertPlate?: boolean;
 }
 
@@ -25,10 +19,10 @@ const sizeMap: Record<
   LogoSize,
   { full: { w: number; h: number }; icon: { w: number; h: number }; text: string }
 > = {
-  sm: { full: { w: 120, h: 36 }, icon: { w: 28, h: 28 }, text: "text-sm" },
-  md: { full: { w: 152, h: 44 }, icon: { w: 36, h: 36 }, text: "text-base" },
-  lg: { full: { w: 200, h: 56 }, icon: { w: 48, h: 48 }, text: "text-lg" },
-  xl: { full: { w: 260, h: 72 }, icon: { w: 64, h: 64 }, text: "text-xl" },
+  sm: { full: { w: 100, h: 30 }, icon: { w: 26, h: 26 }, text: "text-sm" },
+  md: { full: { w: 130, h: 38 }, icon: { w: 32, h: 32 }, text: "text-base" },
+  lg: { full: { w: 180, h: 50 }, icon: { w: 44, h: 44 }, text: "text-lg" },
+  xl: { full: { w: 230, h: 64 }, icon: { w: 58, h: 58 }, text: "text-xl" },
 };
 
 export function Logo({
@@ -44,36 +38,40 @@ export function Logo({
 
   const mark =
     variant === "full" ? (
-      <Image
-        src="/brand/logo.png"
-        alt="IHI — Innovative Hack Intelligence"
-        width={s.full.w}
-        height={s.full.h}
-        priority={priority}
-        className={clsx(
-          "object-contain object-left",
-          invertPlate && "rounded-sm bg-white p-0.5"
-        )}
-      />
+      <div className="relative flex items-center">
+        <Image
+          src="/brand/logo.png"
+          alt="IHI — Innovative Hack Intelligence"
+          width={s.full.w}
+          height={s.full.h}
+          priority={priority}
+          className={clsx(
+            "object-contain object-left filter brightness-95 contrast-105",
+            invertPlate && "rounded-lg bg-black p-1.5 shadow-sm"
+          )}
+        />
+      </div>
     ) : (
-      <Image
-        src="/brand/logo.png"
-        alt="IHI"
-        width={s.icon.w}
-        height={s.icon.h}
-        priority={priority}
-        className={clsx(
-          "object-contain",
-          invertPlate && "rounded-sm bg-white p-0.5"
-        )}
-      />
+      <div className="relative flex items-center">
+        <Image
+          src="/brand/logo.png"
+          alt="IHI"
+          width={s.icon.w}
+          height={s.icon.h}
+          priority={priority}
+          className={clsx(
+            "object-contain",
+            invertPlate && "rounded-lg bg-black p-1.5 shadow-sm"
+          )}
+        />
+      </div>
     );
 
   const content = (
     <span
       className={clsx(
-        "inline-flex select-none items-center gap-2.5",
-        "transition-opacity duration-200 hover:opacity-90",
+        "inline-flex select-none items-center gap-2",
+        "transition-all duration-300 hover:opacity-95 active:scale-95",
         className
       )}
     >
@@ -81,13 +79,13 @@ export function Logo({
       {showText && variant !== "full" && (
         <span
           className={clsx(
-            "font-display font-bold tracking-tight text-black theme-tower:text-white",
+            "font-serif font-semibold tracking-tight text-[#0A0A0A]",
             s.text
           )}
         >
           IHI
-          <span className="ml-1.5 hidden text-[0.7em] font-medium text-gray-500 theme-tower:text-gray-400 sm:inline">
-            Intelligence
+          <span className="ml-1.5 hidden text-[0.75em] font-mono tracking-wider text-[#706F6B] sm:inline">
+            CONSOLE
           </span>
         </span>
       )}
@@ -99,7 +97,7 @@ export function Logo({
   return (
     <Link
       href={href}
-      className="inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
+      className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6A24A]"
       aria-label="IHI home"
     >
       {content}

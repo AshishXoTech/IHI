@@ -2,9 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { clsx } from 'clsx';
-import { motion } from 'framer-motion';
-import { useFlashOnChange } from './useFlashOnChange';
-import { Card } from '@/components/ui';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 export type MetricAccent =
   | 'primary'
@@ -37,6 +35,23 @@ export interface MetricCardProps {
   className?: string;
 }
 
+// Inline performance hook for data changes
+function useLocalFlashOnChange(value: any) {
+  const [flash, setFlash] = useState(false);
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    if (value !== prevValue.current) {
+      setFlash(true);
+      const timer = setTimeout(() => setFlash(false), 300);
+      prevValue.current = value;
+      return () => clearTimeout(timer);
+    }
+  }, [value]);
+
+  return flash;
+}
+
 type NormalizedAccent = 'primary' | 'secondary' | 'good' | 'attention' | 'critical' | 'neutral';
 
 function normalizeAccent(accent: MetricAccent): NormalizedAccent {
@@ -46,23 +61,23 @@ function normalizeAccent(accent: MetricAccent): NormalizedAccent {
   return accent;
 }
 
-// Maps accents purely to Gold, Gray, White, Black
+// Map accents to premium white/black/gold spectrum
 const washMap: Record<NormalizedAccent, string> = {
-  primary: 'bg-gold',
-  secondary: 'bg-gold-light',
-  good: 'bg-gold',
-  attention: 'bg-gold-light',
-  critical: 'bg-white',
-  neutral: 'bg-gray-500',
+  primary: 'bg-[#C6A24A]',
+  secondary: 'bg-[#FAF9F5]',
+  good: 'bg-[#C6A24A]',
+  attention: 'bg-[#FAF9F5]',
+  critical: 'bg-red-500',
+  neutral: 'bg-gray-400',
 };
 
 const sparklineColorMap: Record<NormalizedAccent, string> = {
-  primary: '#C9A227', // gold
-  secondary: '#E4C65A', // gold-light
-  good: '#C9A227',
-  attention: '#E4C65A',
-  critical: '#FFFFFF',
-  neutral: '#737373',
+  primary: '#C6A24A', // Burnished gold
+  secondary: '#A07F32', // Deep gold
+  good: '#C6A24A',
+  attention: '#E8D9A8', // Warm champagne gold
+  critical: '#0A0A0A', // Dark obsidian
+  neutral: '#706F6B', // Muted slate
 };
 
 export function MetricCard({
@@ -78,48 +93,70 @@ export function MetricCard({
   children,
   className,
 }: MetricCardProps) {
-  const flashing = useFlashOnChange(value);
+  const flashing = useLocalFlashOnChange(value);
   const secondaryText = subtitle ?? helper;
   const normalized = normalizeAccent(accent);
+  const cardRef = useRef<HTMLDivElement>(null);
 
-  const [pulseKey, setPulseKey] = useState(0);
-  const prevFlash = useRef(false);
+  // High-performance spring setup for 3D tilt effects
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
 
-  useEffect(() => {
-    if (flashing && !prevFlash.current) {
-      setPulseKey((k) => k + 1);
-    }
-    prevFlash.current = flashing;
-  }, [flashing]);
+  const springConfig = { damping: 25, stiffness: 250, mass: 0.5 };
+  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [10, -10]), springConfig);
+  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-10, 10]), springConfig);
+  const scale = useSpring(1, springConfig);
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseX = (event.clientX - rect.left) / width - 0.5;
+    const mouseY = (event.clientY - rect.top) / height - 0.5;
+    x.set(mouseX);
+    y.set(mouseY);
+  };
+
+  const handleMouseEnter = () => {
+    scale.set(1.02);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+    scale.set(1);
+  };
 
   return (
-    <Card
-      padding="none"
-      variant="default"
+    <motion.div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        rotateX,
+        rotateY,
+        scale,
+        transformStyle: 'preserve-3d',
+      }}
       className={clsx(
-        'group relative overflow-hidden p-6',
-        'border border-gray-700 bg-gray-900', // Deep black/gray card for dashboard
-        'transition-transform duration-200 ease-out hover:-translate-y-px motion-reduce:transform-none',
+        'group relative overflow-hidden rounded-xl bg-white p-5 cursor-pointer',
+        'border border-[#E6E5E0] shadow-sm',
+        'transition-all duration-300 ease-out hover:border-[#C6A24A] hover:shadow-lg',
         className
       )}
     >
-      {/* Subtle ambient wash replacing heavy blurs */}
-      <div
-        aria-hidden="true"
-        className={clsx(
-          'pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full opacity-10 blur-xl',
-          washMap[normalized]
-        )}
-      />
+      {/* Decorative premium gold top outline edge */}
+      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-[#C6A24A]/40 to-transparent" />
 
-      {/* GPU-accelerated flash on data change (opacity ONLY, no background-color transitions) */}
-      {pulseKey > 0 && (
+      {/* GPU-Accelerated Golden Wash Glow on Data Updates */}
+      {flashing && (
         <motion.div
-          key={pulseKey}
           aria-hidden="true"
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 0.15, 0] }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
           className={clsx(
             'pointer-events-none absolute inset-0 z-0 rounded-[inherit]',
             washMap[normalized]
@@ -127,16 +164,20 @@ export function MetricCard({
         />
       )}
 
-      <div className="relative z-10 flex h-full flex-col justify-between">
+      {/* Interactive mouse ambient light tracking */}
+      <div
+        style={{ transform: 'translateZ(20px)' }}
+        className="relative z-10 flex h-full flex-col justify-between"
+      >
         <div className="mb-3 flex items-start justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#706F6B]">
             {label}
           </p>
 
           <div className="flex flex-shrink-0 items-center gap-2">
             {indicator}
             {icon && !indicator && (
-              <div className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-700 bg-black text-gold transition-colors group-hover:text-gold-light">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E6E5E0] bg-[#FAF9F5] text-[#C6A24A] transition-colors group-hover:text-[#A07F32]">
                 {icon}
               </div>
             )}
@@ -144,31 +185,28 @@ export function MetricCard({
         </div>
 
         <div className="flex flex-wrap items-baseline gap-3">
-          <p className="font-mono text-3xl font-bold tabular-nums tracking-tight text-white">
+          <h3 className="font-serif text-3xl font-black tracking-tight text-[#0A0A0A] tabular-nums">
             {value}
-          </p>
+          </h3>
 
           {delta && (
             <span
               className={clsx(
-                'inline-flex select-none items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold leading-none',
-                delta.trend === 'up' &&
-                  'border border-gold/40 bg-gold/15 text-gold-light',
-                delta.trend === 'down' &&
-                  'border border-white/30 bg-white/10 text-white',
-                delta.trend === 'neutral' &&
-                  'border border-gray-700 bg-black text-gray-400'
+                'inline-flex select-none items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold',
+                delta.trend === 'up' && 'bg-[#F7F3E3] border border-[#C6A24A]/30 text-[#A07F32]',
+                delta.trend === 'down' && 'bg-red-50 border border-red-100 text-red-700',
+                delta.trend === 'neutral' && 'bg-[#F0EFEA] border border-[#E6E5E0] text-[#706F6B]'
               )}
             >
-              <svg className="h-3 w-3 flex-shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <svg className="h-2.5 w-2.5 flex-shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                 {delta.trend === 'up' && (
-                  <path d="M2.5 8.5L6 3.5l3.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M2.5 8.5L6 3.5l3.5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 )}
                 {delta.trend === 'down' && (
-                  <path d="M2.5 3.5L6 8.5l3.5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M2.5 3.5L6 8.5l3.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 )}
                 {delta.trend === 'neutral' && (
-                  <path d="M2.5 6h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M2.5 6h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 )}
               </svg>
               <span>{typeof delta.value === 'number' ? `${delta.value}%` : delta.value}</span>
@@ -176,21 +214,21 @@ export function MetricCard({
           )}
         </div>
 
-        {secondaryText && (
-          <p className="mt-1.5 truncate text-xs font-normal text-gray-400">
-            {secondaryText}
-          </p>
-        )}
+          {secondaryText && (
+            <p className="mt-1.5 truncate font-sans text-xs text-[#706F6B]">
+              {secondaryText}
+            </p>
+          )}
 
         {sparkline && sparkline.length > 1 && (
-          <div className="mt-4 h-10 w-full">
+          <div className="mt-4 h-9 w-full">
             <SparklineGraph data={sparkline} accent={normalized} />
           </div>
         )}
 
         {children && <div className="mt-3">{children}</div>}
       </div>
-    </Card>
+    </motion.div>
   );
 }
 
@@ -221,12 +259,12 @@ function SparklineGraph({ data, accent }: SparklineGraphProps) {
     <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="h-full w-full overflow-visible" aria-hidden="true">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={strokeColor} stopOpacity="0.3" />
+          <stop offset="0%" stopColor={strokeColor} stopOpacity="0.25" />
           <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
         </linearGradient>
       </defs>
       <polygon points={`0,${height} ${points} ${width},${height}`} fill={`url(#${gradientId})`} />
-      <polyline points={points} fill="none" stroke={strokeColor} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <polyline points={points} fill="none" stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
