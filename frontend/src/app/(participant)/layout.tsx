@@ -1,26 +1,231 @@
-/**
- * Participant shell — world-class DashboardShell wrapper.
- * Keeps participant routes visually consistent without touching organizer/judge layouts.
- */
-import { DashboardShell } from "@/components/layout/DashboardShell";
-import { participantNavigation } from "@/components/layout/navigation";
+"use client";
+
+import React, { useEffect, useState, Suspense } from "react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  Users,
+  Upload,
+  Compass,
+  LogOut,
+  Trophy,
+  User,
+  Zap,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+interface ParticipantUser {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+}
+
+const NAV = [
+  { href: "/team", label: "My Team", icon: Users },
+  { href: "/submit", label: "Submit", icon: Upload },
+  { href: "/team?tab=discover", label: "Discover Teams", icon: Compass },
+  { href: "/profile", label: "Profile", icon: User },
+  { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+];
+
+function SidebarNav() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+
+  const isActive = (href: string) => {
+    if (href === "/team") {
+      return pathname === "/team" && tabParam !== "discover";
+    }
+    if (href === "/team?tab=discover") {
+      return pathname === "/team" && tabParam === "discover";
+    }
+    const base = href.split("?")[0];
+    return pathname === base || pathname.startsWith(base + "/");
+  };
+
+  return (
+    <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+      {NAV.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex items-center gap-3 border-2 px-3 py-2.5 text-xs font-bold font-mono uppercase tracking-wider transition-transform ${
+              active
+                ? "border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] text-[var(--organizer-ink-primary)] -translate-x-0.5"
+                : "border-transparent text-[var(--organizer-ink-secondary)] hover:border-[var(--organizer-border)] hover:bg-[var(--organizer-surface-hover)]"
+            }`}
+            style={
+              active
+                ? { boxShadow: "3px 3px 0px 0px var(--organizer-gold)" }
+                : undefined
+            }
+          >
+            <Icon className="h-4 w-4 shrink-0 text-[var(--organizer-gold-deep)]" />
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 export default function ParticipantLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const supabase = createClient();
+  const [user, setUser] = useState<ParticipantUser | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadUser() {
+      try {
+        // 1. Try active session first
+        const { data: { session } } = await supabase.auth.getSession();
+        let authUser = session?.user || null;
+
+        if (!authUser) {
+          const { data: { user: fetchedUser } } = await supabase.auth.getUser();
+          authUser = fetchedUser;
+        }
+
+        if (!authUser) {
+          if (mounted) {
+            setUser(null);
+            setLoadingUser(false);
+          }
+          return;
+        }
+
+        // 2. Query profiles table for real user name
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id, full_name, username, avatar_url, email")
+          .eq("id", authUser.id)
+          .maybeSingle();
+
+        const displayName =
+          profile?.full_name ||
+          profile?.username ||
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          (authUser.email ? authUser.email.split("@")[0].toUpperCase() : "HACKER");
+
+        if (mounted) {
+          setUser({
+            id: authUser.id,
+            name: displayName,
+            email: profile?.email || authUser.email || "No email",
+            avatarUrl: profile?.avatar_url || authUser.user_metadata?.avatar_url,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load participant user:", err);
+      } finally {
+        if (mounted) setLoadingUser(false);
+      }
+    }
+
+    loadUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadUser();
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    router.push("/login");
+  };
+
   return (
-    <div data-register="tower" className="min-h-screen">
-      <DashboardShell
-        role="participant"
-        userName="Jordan Kim"
-        userEmail="jordan@berkeley.edu"
-        eventName="Spring Innovation Challenge"
-        navigation={participantNavigation}
-      >
-        {children}
-      </DashboardShell>
+    <div className="flex min-h-screen bg-[var(--organizer-bg)] text-[var(--organizer-ink-primary)]">
+      {/* Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)]">
+        {/* Brand */}
+        <div className="flex items-center gap-3 border-b-2 border-[var(--organizer-ink-primary)] px-4 py-4">
+          <div className="flex h-10 w-10 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] font-black font-display text-sm text-white shadow-[2px_2px_0px_0px_var(--organizer-ink-primary)]">
+            IHI
+          </div>
+          <div className="min-w-0">
+            <div className="text-[9px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-gold-deep)]">
+              Participant Hub
+            </div>
+            <div className="truncate text-xs font-black font-display uppercase tracking-tight">
+              Spring Innovation Challenge
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <Suspense fallback={<div className="p-3 text-xs font-mono">Loading menu…</div>}>
+          <SidebarNav />
+        </Suspense>
+
+        {/* User Footer */}
+        <div className="border-t-2 border-[var(--organizer-ink-primary)] p-3 space-y-2">
+          <div className="flex items-center gap-2.5 border-2 border-[var(--organizer-border)] bg-[var(--organizer-bg)] p-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] text-xs font-black font-mono text-white">
+              {loadingUser
+                ? "…"
+                : (user?.name || "G")
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-black font-display uppercase tracking-tight">
+                {loadingUser ? "Loading…" : user?.name || "Guest Hacker"}
+              </div>
+              <div className="truncate text-[10px] font-mono text-[var(--organizer-ink-muted)]">
+                {user?.email || "Not signed in"}
+              </div>
+            </div>
+          </div>
+
+          {!user ? (
+            <Link
+              href="/login"
+              className="flex w-full items-center justify-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-3 py-2 text-[10px] font-bold font-mono uppercase tracking-widest text-white transition-transform hover:-translate-y-0.5"
+              style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              Sign In
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex w-full items-center justify-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-3 py-2 text-[10px] font-bold font-mono uppercase tracking-widest transition-transform hover:-translate-y-0.5"
+              style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign Out
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="ml-64 flex-1 min-h-screen">{children}</main>
     </div>
   );
 }
