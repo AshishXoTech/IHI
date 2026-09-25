@@ -1,219 +1,346 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useParams } from "next/navigation";
+import { motion, type Variants } from "framer-motion";
+import { Plus, Trash2, ShieldCheck, ArrowLeft, Save, Users, AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import { Button, Card, Input, StatusBadge } from "@/components/ui";
-import type { ApiResult, RubricCriterion } from "@/types/shared";
 
-const EMPTY_ROW = (): RubricCriterion => ({
-  title: "",
-  description: "",
-  max_score: 10,
-  weight: 0,
-});
+interface Criterion {
+  id: string;
+  name: string;
+  weight: number;
+  scale: number;
+  description: string;
+}
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08, delayChildren: 0.1 },
+  },
+};
+
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 300, damping: 24 },
+  },
+};
+
+const floatVariants: Variants = {
+  animate: {
+    y: [0, -15, 0],
+    rotate: [0, 5, -5, 0],
+    transition: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+  },
+};
+
+const floatVariantsReverse: Variants = {
+  animate: {
+    y: [0, 15, 0],
+    rotate: [0, -5, 5, 0],
+    transition: { duration: 7, repeat: Infinity, ease: "easeInOut" },
+  },
+};
 
 export default function RubricBuilderPage() {
-  const params = useParams();
-  const eventId = params.id as string;
+  const routeParams = useParams();
+  const eventId = (routeParams?.eventId as string) || "1";
 
-  const [title, setTitle] = useState("Main Evaluation Rubric");
-  const [criteria, setCriteria] = useState<RubricCriterion[]>([
-    { title: "Technical Complexity", description: "", max_score: 10, weight: 30 },
-    { title: "Innovation", description: "", max_score: 10, weight: 25 },
-    { title: "Design / UX", description: "", max_score: 10, weight: 25 },
-    { title: "Impact", description: "", max_score: 10, weight: 20 },
+  const [rubricTitle, setRubricTitle] = useState("Main Evaluation Rubric");
+  const [criteria, setCriteria] = useState<Criterion[]>([
+    {
+      id: "1",
+      name: "Technical Complexity",
+      weight: 30,
+      scale: 10,
+      description: "Architecture, algorithm complexity, code structure, and technical execution accuracy.",
+    },
+    {
+      id: "2",
+      name: "Originality & Innovation",
+      weight: 25,
+      scale: 10,
+      description: "Uniqueness of the problem solved or novel approach taken.",
+    },
+    {
+      id: "3",
+      name: "Design / UX",
+      weight: 25,
+      scale: 10,
+      description: "Usability, aesthetics, user interaction flow, and visual polish.",
+    },
+    {
+      id: "4",
+      name: "Impact",
+      weight: 20,
+      scale: 10,
+      description: "Real-world usefulness, potential market size, or social value.",
+    },
   ]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
-  const totalWeight = useMemo(
-    () => criteria.reduce((s, c) => s + (Number(c.weight) || 0), 0),
-    [criteria]
-  );
-  const isExactly100 = Math.abs(totalWeight - 100) < 0.001;
-  // Functionally non-clickable unless exactly 100
-  const canSave = isExactly100 && criteria.every((c) => c.title.trim() && Number(c.weight) > 0);
+  const totalWeight = criteria.reduce((sum, c) => sum + (Number(c.weight) || 0), 0);
+  const isValid = totalWeight === 100;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/judging/rubric?eventId=${encodeURIComponent(eventId)}`);
-      const json = (await res.json()) as ApiResult<{
-        title?: string;
-        criteria?: RubricCriterion[];
-      } | null>;
-      if (res.ok && json.ok && json.data) {
-        if (json.data.title) setTitle(json.data.title);
-        if (json.data.criteria?.length) setCriteria(json.data.criteria);
-      }
-    } catch {
-      setError("Could not load existing rubric.");
-    } finally {
-      setLoading(false);
-    }
-  }, [eventId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const updateRow = (index: number, patch: Partial<RubricCriterion>) => {
-    setCriteria((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
-    setSuccess(null);
+  const handleCriterionChange = (id: string, field: keyof Criterion, value: string | number) => {
+    setCriteria((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+    );
   };
 
-  const addRow = () => setCriteria((prev) => [...prev, EMPTY_ROW()]);
-  const removeRow = (index: number) => {
-    setCriteria((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
+  const handleAddCriterion = () => {
+    const newId = (criteria.length + 1).toString();
+    setCriteria((prev) => [
+      ...prev,
+      {
+        id: newId,
+        name: `New Criterion ${newId}`,
+        weight: 0,
+        scale: 10,
+        description: "",
+      },
+    ]);
   };
 
-  const handleSave = async () => {
-    // Hard UI gate — do not fire request if invalid
-    if (!canSave) return;
-
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const res = await fetch("/api/judging/rubric", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, title, criteria }),
-      });
-      const json = (await res.json()) as ApiResult<unknown>;
-      if (!res.ok || !json.ok) {
-        setError(
-          !json.ok
-            ? json.error
-            : "Server rejected the rubric. Weights must total exactly 100%."
-        );
-        return;
-      }
-      setSuccess("Rubric saved. Weights total 100%.");
-      await load();
-    } catch {
-      setError("Network error while saving rubric.");
-    } finally {
-      setSaving(false);
-    }
+  const handleRemoveCriterion = (id: string) => {
+    setCriteria((prev) => prev.filter((c) => c.id !== id));
   };
 
   return (
-    <div className="min-h-screen bg-[var(--ihi-surface-50)] px-4 py-10 text-[var(--ihi-surface-900)] sm:px-8">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--ihi-surface-500)]">
-              Judging · {eventId}
-            </p>
-            <h1 className="text-2xl font-semibold tracking-tight">Rubric builder</h1>
-            <p className="mt-1 text-sm text-[var(--ihi-surface-600)]">
-              Criteria weights must sum to exactly 100 (UI + API + DB).
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href={`/events/${eventId}/judging/assign`}>
-              <Button type="button" variant="secondary">
-                Judge assign
-              </Button>
-            </Link>
-            <Button
-              type="button"
-              variant="primary"
-              loading={saving}
-              disabled={!canSave || saving}
-              aria-disabled={!canSave || saving}
-              onClick={handleSave}
+    <div className="relative min-h-screen bg-[var(--organizer-bg)] text-[var(--organizer-ink-primary)] selection:bg-[var(--organizer-gold)] selection:text-white pb-24 overflow-hidden p-6">
+      {/* Blueprint Graph-Paper Background */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-80"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, var(--organizer-border) 1px, transparent 1px),
+            linear-gradient(to bottom, var(--organizer-border) 1px, transparent 1px)
+          `,
+          backgroundSize: "40px 40px",
+          maskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
+          WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
+        }}
+      />
+
+      {/* Floating Shapes */}
+      <motion.div
+        variants={floatVariants}
+        animate="animate"
+        className="pointer-events-none absolute top-12 right-12 z-0 hidden lg:block h-16 w-16 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)]"
+        style={{ boxShadow: "6px 6px 0px 0px var(--organizer-ink-primary)" }}
+      />
+      <motion.div
+        variants={floatVariantsReverse}
+        animate="animate"
+        className="pointer-events-none absolute bottom-24 right-24 z-0 hidden lg:block h-12 w-12 rounded-full border-2 border-[var(--organizer-ink-primary)] bg-white p-2"
+      >
+        <div className="h-full w-full rounded-full bg-[var(--organizer-gold-deep)]" />
+      </motion.div>
+
+      {/* Main Container */}
+      <div className="relative z-10 mx-auto max-w-5xl">
+        
+        {/* Top Eyebrow Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/events/${eventId}/dashboard`}
+              className="inline-flex items-center gap-1 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-wider transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
+              style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
             >
-              Save rubric
-            </Button>
+              <ArrowLeft className="h-3 w-3" /> Back
+            </Link>
+            <span className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] px-3 py-1 text-[10px] font-bold font-mono uppercase tracking-widest">
+              JUDGING · RUBRIC
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-5 py-2.5 text-xs font-bold font-mono uppercase tracking-wider transition-transform hover:-translate-x-1 hover:-translate-y-1"
+              style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              <Users className="h-4 w-4" /> Judge Assign
+            </button>
+            <button
+              disabled={!isValid}
+              className={`inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] px-5 py-2.5 text-xs font-bold font-mono uppercase tracking-wider transition-transform hover:-translate-x-1 hover:-translate-y-1 ${
+                isValid
+                  ? "bg-[var(--organizer-gold)] text-[var(--organizer-ink-primary)]"
+                  : "bg-gray-200 text-gray-400 opacity-60 cursor-not-allowed"
+              }`}
+              style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              <Save className="h-4 w-4" /> Save Rubric
+            </button>
           </div>
         </div>
 
-        <Card padding="md" variant="default">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <span className="text-xs font-medium text-[var(--ihi-surface-500)]">Running total</span>
-              <p className="font-mono text-2xl font-semibold tabular-nums">
-                {totalWeight}
-                <span className="text-sm font-normal text-[var(--ihi-surface-500)]"> / 100</span>
-              </p>
+        {/* Display Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl sm:text-6xl font-black font-display tracking-tighter uppercase">
+            RUBRIC <span className="text-[var(--organizer-gold-deep)]">BUILDER.</span>
+          </h1>
+          <p className="mt-2 text-xs font-mono font-bold uppercase tracking-wider text-[var(--organizer-ink-muted)]">
+            Criteria weights must sum to exactly 100 (UI + API + DB verification enforced).
+          </p>
+        </div>
+
+        {/* Form Container */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="space-y-6"
+        >
+          {/* Running Total Card */}
+          <motion.div
+            variants={cardVariants}
+            className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-6 transition-transform hover:-translate-y-0.5"
+            style={{ boxShadow: "6px 6px 0px 0px var(--organizer-gold)" }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)]">
+                  Running weight total
+                </p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-4xl font-black font-mono tracking-tight">
+                    {totalWeight}
+                  </span>
+                  <span className="text-lg font-bold font-mono text-[var(--organizer-ink-muted)]">
+                    / 100
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                {isValid ? (
+                  <span className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-emerald-100 px-4 py-2 text-xs font-bold font-mono uppercase tracking-wider text-emerald-900">
+                    <ShieldCheck className="h-4 w-4 text-emerald-700" /> Valid — 100%
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-amber-100 px-4 py-2 text-xs font-bold font-mono uppercase tracking-wider text-amber-900">
+                    <AlertTriangle className="h-4 w-4 text-amber-700" /> Invalid Total ({totalWeight}% / 100%)
+                  </span>
+                )}
+              </div>
             </div>
-            <StatusBadge
-              status={isExactly100 ? "good" : "critical"}
-              label={isExactly100 ? "Valid — 100%" : `Invalid — ${totalWeight}%`}
+          </motion.div>
+
+          {/* Rubric Title Field */}
+          <motion.div
+            variants={cardVariants}
+            className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-6"
+            style={{ boxShadow: "6px 6px 0px 0px var(--organizer-gold)" }}
+          >
+            <label className="block text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-2">
+              Rubric title
+            </label>
+            <input
+              type="text"
+              value={rubricTitle}
+              onChange={(e) => setRubricTitle(e.target.value)}
+              className="w-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] p-3 text-xs font-mono font-bold uppercase placeholder:text-[var(--organizer-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--organizer-gold)]"
+              style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
             />
-          </div>
-        </Card>
+          </motion.div>
 
-        {error && (
-          <div role="alert" className="rounded-md border border-[var(--ihi-signal-stop)]/30 bg-[var(--ihi-signal-stop-bg)] px-4 py-3 text-sm text-[var(--ihi-signal-stop)]">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div role="status" className="rounded-md border border-[var(--ihi-signal-go)]/30 bg-[var(--ihi-signal-go-bg)] px-4 py-3 text-sm text-[var(--ihi-signal-go)]">
-            {success}
-          </div>
-        )}
+          {/* Criteria Cards */}
+          {criteria.map((item, idx) => (
+            <motion.div
+              key={item.id}
+              variants={cardVariants}
+              className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-6"
+              style={{ boxShadow: "6px 6px 0px 0px var(--organizer-gold)" }}
+            >
+              <div className="flex items-center justify-between pb-4 border-b-2 border-[var(--organizer-border-light)] mb-4">
+                <span className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-secondary)]">
+                  CRITERION {idx + 1}
+                </span>
+                {criteria.length > 1 && (
+                  <button
+                    onClick={() => handleRemoveCriterion(item.id)}
+                    className="inline-flex items-center gap-1 text-xs font-bold font-mono uppercase tracking-wider text-red-600 hover:text-red-800 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Remove
+                  </button>
+                )}
+              </div>
 
-        <Card padding="md" variant="default">
-          <Input label="Rubric title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        </Card>
-
-        {loading ? (
-          <p className="text-sm text-[var(--ihi-surface-500)]">Loading…</p>
-        ) : (
-          <div className="space-y-4">
-            {criteria.map((c, index) => (
-              <Card key={index} padding="md" variant="default" className="space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--ihi-surface-500)]">
-                    Criterion {index + 1}
-                  </p>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => removeRow(index)}>
-                    Remove
-                  </Button>
-                </div>
-                <Input
-                  label="Name"
-                  value={c.title}
-                  onChange={(e) => updateRow(index, { title: e.target.value })}
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input
-                    label="Weight (%)"
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={c.weight}
-                    onChange={(e) => updateRow(index, { weight: Number(e.target.value) })}
-                  />
-                  <Input
-                    label="Scale (max score)"
-                    type="number"
-                    min={1}
-                    value={c.max_score}
-                    onChange={(e) => updateRow(index, { max_score: Number(e.target.value) })}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-1">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => handleCriterionChange(item.id, "name", e.target.value)}
+                    className="w-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] p-3 text-xs font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[var(--organizer-gold)]"
+                    style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
                   />
                 </div>
-                <Input
-                  label="Description (optional)"
-                  value={c.description || ""}
-                  onChange={(e) => updateRow(index, { description: e.target.value })}
-                />
-              </Card>
-            ))}
-            <Button type="button" variant="secondary" onClick={addRow} className="w-full">
-              + Add criterion
-            </Button>
-          </div>
-        )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-1">
+                      Weight (%)
+                    </label>
+                    <input
+                      type="number"
+                      value={item.weight}
+                      onChange={(e) => handleCriterionChange(item.id, "weight", Number(e.target.value))}
+                      className="w-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] p-3 text-xs font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[var(--organizer-gold)]"
+                      style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-1">
+                      Scale (max score)
+                    </label>
+                    <input
+                      type="number"
+                      value={item.scale}
+                      onChange={(e) => handleCriterionChange(item.id, "scale", Number(e.target.value))}
+                      className="w-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] p-3 text-xs font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[var(--organizer-gold)]"
+                      style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-1">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={item.description}
+                    onChange={(e) => handleCriterionChange(item.id, "description", e.target.value)}
+                    className="w-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] p-3 text-xs font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[var(--organizer-gold)]"
+                    style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          ))}
+
+          {/* Add Criterion Button */}
+          <motion.div variants={cardVariants}>
+            <button
+              onClick={handleAddCriterion}
+              className="w-full inline-flex items-center justify-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] py-3 text-xs font-bold font-mono uppercase tracking-wider transition-transform hover:-translate-x-1 hover:-translate-y-1"
+              style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              <Plus className="h-4 w-4" /> Add criterion
+            </button>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );
