@@ -1,12 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-/**
- * Edge-safe middleware.
- * Uses jose only (no Node crypto, no bcrypt, no cookies() from next/headers).
- * Mirrors AUTH constants inline so this file has zero server-only imports.
- */
-
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ihi_session";
 const JWT_SECRET =
   process.env.JWT_SECRET ||
@@ -24,26 +18,10 @@ interface EdgeClaims {
   name?: string;
 }
 
-const PUBLIC_PREFIXES = [
-  "/",
-  "/login",
-  "/signup",
-  "/judge-login",
-  "/api/auth",
-  "/auth/callback",
-  "/sponsors",
-  "/hackathons",
-  "/_next",
-  "/favicon",
-  "/brand",
-];
-
-/** Exact public paths (home is exact, not a prefix of everything) */
 const PUBLIC_EXACT = new Set(["/"]);
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_EXACT.has(pathname)) return true;
-  // Static / next internals
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/brand") ||
@@ -52,7 +30,6 @@ function isPublic(pathname: string): boolean {
   ) {
     return true;
   }
-  // Auth surfaces & public marketing
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
@@ -64,14 +41,12 @@ function isPublic(pathname: string): boolean {
   ) {
     return true;
   }
-  // Public event detail and registration pages
   if (
     /^\/events\/[^/]+$/.test(pathname) ||
     /^\/events\/[^/]+\/register$/.test(pathname)
   ) {
     return true;
   }
-  // Marketing landing anchors are still "/"
   return false;
 }
 
@@ -93,7 +68,6 @@ function isParticipantRoute(pathname: string): boolean {
     pathname.startsWith("/team") ||
     pathname.startsWith("/submit") ||
     pathname.startsWith("/results") ||
-    // participant group under (participant)
     pathname.startsWith("/participant")
   );
 }
@@ -126,7 +100,7 @@ async function readClaims(req: NextRequest): Promise<EdgeClaims | null> {
       name: payload.name ? String(payload.name) : undefined,
     };
   } catch {
-    return null; // expired / tampered → treat as logged out
+    return null;
   }
 }
 
@@ -156,51 +130,36 @@ function forbiddenRedirect(req: NextRequest) {
 }
 
 export async function middleware(req: NextRequest) {
-  const { pathname, searchParams } = req.nextUrl;
+  const { pathname } = req.nextUrl;
 
-  // 1. Public paths — never block
   if (isPublic(pathname)) {
     return NextResponse.next();
   }
 
-  // 2. Read session from httpOnly cookie (edge-safe)
   const claims = await readClaims(req);
 
-  // 3. Special check for Judge Routes (Supports both JWT session & direct magic link session)
+  // Judge routes validation
   if (isJudgeRoute(pathname)) {
-    // Valid JWT claims
+    // Check JWT claim role first
     if (claims?.role === "judge") {
       return NextResponse.next();
     }
 
-    // Direct access or direct session fallback
-    const judgeRoleCookie = req.cookies.get("ihi_role")?.value;
-    const judgeSessionCookie = req.cookies.get("ihi_judge_session")?.value;
-    const hasJudgeEmailParam = searchParams.has("email");
+    // Fallback check for active judge cookies
+    const judgeRole = req.cookies.get("ihi_role")?.value;
+    const judgeSession = req.cookies.get("ihi_judge_session")?.value;
 
-    if (judgeRoleCookie === "judge" || judgeSessionCookie === "active" || hasJudgeEmailParam) {
-      const response = NextResponse.next();
-
-      // Auto-set session cookies if email parameter was passed in URL
-      if (hasJudgeEmailParam) {
-        const judgeEmail = searchParams.get("email") || "judge@university.edu";
-        response.cookies.set("ihi_role", "judge", { path: "/" });
-        response.cookies.set("ihi_user_email", judgeEmail, { path: "/" });
-        response.cookies.set("ihi_judge_session", "active", { path: "/" });
-      }
-      return response;
+    if (judgeRole === "judge" || judgeSession === "active") {
+      return NextResponse.next();
     }
 
-    // Unauthenticated judge -> send to judge login page
-    return judgeLoginRedirect(req, "SESSION_MISSING");
+    return judgeLoginRedirect(req, "SESSION_EXPIRED");
   }
 
-  // 4. Protected non-judge routes require a valid claims session
   if (!claims) {
     return loginRedirect(req, "SESSION_MISSING");
   }
 
-  // 5. Role gates
   if (isOrganizerRoute(pathname)) {
     if (claims.role !== "organizer") {
       return forbiddenRedirect(req);
@@ -215,13 +174,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 6. Any other authenticated route — allow if session valid
   return NextResponse.next();
 }
 
-/**
- * Matcher: run middleware on app routes, skip static assets aggressively.
- */
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|brand/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",

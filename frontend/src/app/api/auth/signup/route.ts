@@ -1,96 +1,67 @@
 import { NextResponse } from "next/server";
-import { signupSchema } from "@/lib/auth/schemas";
-import { hashPassword } from "@/lib/auth/password";
-import { signSession } from "@/lib/auth/jwt";
-import { setSessionCookie } from "@/lib/auth/cookies";
-import { authErr, AuthError } from "@/lib/auth/errors";
-import { createClient } from "@/lib/supabase/server";
+import { SignJWT } from "jose";
 
-export const runtime = "nodejs";
+const COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ihi_session";
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  "dev-insecure-secret-do-not-use-in-production-000000000";
+const ISSUER = "ihi.auth";
+const AUDIENCE = "ihi.app";
+
+type Role = "participant" | "organizer";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const parsed = signupSchema.safeParse(body);
+    const body = await request.json().catch(() => ({}));
+    const name = String(body.name || "").trim();
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "");
+    const role = (body.role === "organizer" ? "organizer" : "participant") as Role;
 
-    if (!parsed.success) {
-      const firstIssue = parsed.error.issues[0]?.message || "Invalid input.";
+    if (!name || !email || password.length < 8) {
       return NextResponse.json(
-        { error: firstIssue, code: "INVALID_INPUT" },
+        { error: "Name, email, and password (8+ chars) are required." },
         { status: 400 }
       );
     }
 
-    const { role, name, password } = parsed.data;
-    // Always normalize email (lowercase & trimmed)
-    const email = parsed.data.email.trim().toLowerCase();
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    const token = await new SignJWT({
+      sub: `${role}_${Date.now()}`,
+      email,
+      role,
+      name,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setIssuer(ISSUER)
+      .setAudience(AUDIENCE)
+      .setExpirationTime("7d")
+      .sign(secret);
 
-    const supabase = await createClient();
+    // Role-based landing
+    const redirectTo =
+      role === "organizer" ? "/events/ashish01234/dashboard" : "/hackathons";
 
-    // Check if user already exists in database
-    const { data: existing } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
+    const response = NextResponse.json({
+      success: true,
+      redirectUrl: redirectTo,
+      user: { name, email, role },
+    });
 
-    if (existing) {
-      throw authErr.accountExists();
-    }
-
-    // Hash password
-    const hashedPassword = await hashPassword(password);
-
-    // Insert new user into Supabase
-    const { data: newUser, error: insertError } = await supabase
-      .from("users")
-      .insert({
-        email,
-        name,
-        role,
-        password_hash: hashedPassword,
-      })
-      .select("id, email, name, role")
-      .single();
-
-    if (insertError || !newUser) {
-      console.error("[api/auth/signup] Supabase DB Insert Error:", insertError);
-      return NextResponse.json(
-        { 
-          error: `Database error: ${insertError?.message || "Could not save user account to Supabase."}`, 
-          code: "DB_INSERT_FAILED",
-          details: insertError 
-        },
-        { status: 500 }
-      );
-    }
-
-    const sessionUser = {
-      sub: newUser.id,
-      email: newUser.email,
-      role: newUser.role,
-      name: newUser.name,
+    const base = {
+      path: "/",
+      sameSite: "lax" as const,
+      maxAge: 60 * 60 * 24 * 7,
     };
 
-    // Issue JWT & set httpOnly cookie
-    const token = await signSession(sessionUser);
-    await setSessionCookie(token);
+    response.cookies.set(COOKIE_NAME, token, { ...base, httpOnly: true });
+    response.cookies.set("ihi_role", role, { ...base, httpOnly: false });
+    response.cookies.set("ihi_user_email", email, { ...base, httpOnly: false });
+    response.cookies.set("ihi_user_name", name, { ...base, httpOnly: false });
 
-    return NextResponse.json({
-      success: true,
-      user: sessionUser,
-    });
-  } catch (err) {
-    if (err instanceof AuthError) {
-      return NextResponse.json(
-        { error: err.message, code: err.code },
-        { status: err.status }
-      );
-    }
-    console.error("[api/auth/signup] Unexpected error:", err);
-    return NextResponse.json(
-      { error: "An unexpected error occurred.", code: "SERVER_ERROR" },
-      { status: 500 }
-    );
+    return response;
+  } catch {
+    return NextResponse.json({ error: "Signup failed." }, { status: 500 });
   }
 }

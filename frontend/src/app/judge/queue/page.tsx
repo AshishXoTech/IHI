@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { motion, type Variants } from "framer-motion";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -108,7 +108,7 @@ const FALLBACK_QUEUE: QueueItem[] = [
   },
 ];
 
-export default function JudgeQueuePage() {
+function QueueContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventId = searchParams.get("eventId") || "ashish01234";
@@ -136,7 +136,10 @@ export default function JudgeQueuePage() {
 
       // Demo fallback so local UI is never blocked
       if (!user) {
-        const demo = typeof window !== "undefined" ? localStorage.getItem("ihi_demo_judge") : null;
+        const demo =
+          typeof window !== "undefined"
+            ? localStorage.getItem("ihi_demo_judge")
+            : null;
         if (demo) {
           setDemoMode(true);
           setQueue(FALLBACK_QUEUE);
@@ -162,17 +165,22 @@ export default function JudgeQueuePage() {
           setQueue(
             rows.map((r: any, i: number) => ({
               id: r.id || r.submission_id || `sub-${i}`,
-              title: (r.title || r.project_title || "UNTITLED PROJECT").toUpperCase(),
+              title: (
+                r.title ||
+                r.project_title ||
+                "UNTITLED PROJECT"
+              ).toUpperCase(),
               teamName: (r.team_name || r.team || "UNKNOWN TEAM").toUpperCase(),
               track: (r.track || "GENERAL").toUpperCase(),
               status:
                 r.status === "scored" || r.is_scored
                   ? "scored"
                   : r.status === "correction" || r.needs_correction
-                    ? "correction"
-                    : "pending",
+                  ? "correction"
+                  : "pending",
               priority: r.priority ?? i + 1,
-              submittedAt: r.submitted_at || r.created_at || new Date().toISOString(),
+              submittedAt:
+                r.submitted_at || r.created_at || new Date().toISOString(),
               repoUrl: r.repo_url || null,
             }))
           );
@@ -252,88 +260,13 @@ export default function JudgeQueuePage() {
       };
     return {
       label: "UNSCORED",
-      className: "bg-[var(--organizer-gold-light)] text-[var(--organizer-ink-primary)] border-[var(--organizer-ink-primary)]",
+      className:
+        "bg-[var(--organizer-gold-light)] text-[var(--organizer-ink-primary)] border-[var(--organizer-ink-primary)]",
     };
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--organizer-bg)] pb-24 text-[var(--organizer-ink-primary)] selection:bg-[var(--organizer-gold)] selection:text-white">
-      {/* Scope-specific CSS overrides to transform parent dark navbar into Neo-Brutalist Museum style without touching layout files */}
-      <style>{`
-        header, 
-        nav,
-        [class*="bg-black"], 
-        [class*="bg-neutral-900"], 
-        [class*="bg-zinc-900"],
-        [class*="bg-[#0a0a0a]"],
-        [class*="bg-[#0A0A0A]"] {
-          background-color: #FFFFFF !important;
-          border-bottom: 2px solid #0A0A0A !important;
-          color: #0A0A0A !important;
-        }
-
-        header *, 
-        nav *,
-        [class*="bg-black"] *, 
-        [class*="bg-neutral-900"] *, 
-        [class*="bg-zinc-900"] * {
-          color: #0A0A0A !important;
-          border-color: #0A0A0A !important;
-        }
-
-        header button, 
-        header a, 
-        [class*="bg-black"] button, 
-        [class*="bg-black"] a {
-          background-color: #FFFFFF !important;
-          color: #0A0A0A !important;
-          border: 2px solid #0A0A0A !important;
-          border-radius: 0px !important;
-          box-shadow: 2px 2px 0px 0px #0A0A0A !important;
-          font-weight: 800 !important;
-          font-family: var(--font-mono), monospace !important;
-          text-transform: uppercase !important;
-        }
-
-        header button:hover, 
-        header a:hover, 
-        [class*="bg-black"] button:hover, 
-        [class*="bg-black"] a:hover {
-          background-color: #F7F3E3 !important;
-          transform: translate(-1px, -1px) !important;
-        }
-      `}</style>
-
-      {/* Blueprint grid */}
-      <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-80"
-        style={{
-          backgroundImage: `
-            linear-gradient(to right, var(--organizer-border) 1px, transparent 1px),
-            linear-gradient(to bottom, var(--organizer-border) 1px, transparent 1px)
-          `,
-          backgroundSize: "40px 40px",
-          maskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
-          WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
-        }}
-      />
-
-      {/* Floating shapes */}
-      <motion.div
-        variants={floatOne}
-        animate="animate"
-        className="pointer-events-none absolute right-12 top-16 z-10 hidden h-16 w-16 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] shadow-[6px_6px_0px_0px_var(--organizer-ink-primary)] lg:flex"
-      >
-        <Gavel className="h-8 w-8 text-white" />
-      </motion.div>
-      <motion.div
-        variants={floatTwo}
-        animate="animate"
-        className="pointer-events-none absolute left-10 top-80 z-10 hidden h-14 w-14 items-center justify-center rounded-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] shadow-[6px_6px_0px_0px_var(--organizer-gold)] lg:flex"
-      >
-        <div className="h-5 w-5 rotate-45 bg-[var(--organizer-gold-deep)]" />
-      </motion.div>
-
+    <>
       <div className="relative z-10 mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
         {/* Main Header */}
         <div className="mb-8 border-b-2 border-[var(--organizer-ink-primary)] pb-6">
@@ -349,13 +282,17 @@ export default function JudgeQueuePage() {
               </h1>
               <p className="mt-2 max-w-2xl text-xs font-mono uppercase tracking-wide text-[var(--organizer-ink-muted)]">
                 Evaluate submissions for event{" "}
-                <span className="font-black text-[var(--organizer-ink-primary)]">{eventId}</span>.
-                Priority projects appear first.
+                <span className="font-black text-[var(--organizer-ink-primary)]">
+                  {eventId}
+                </span>
+                . Priority projects appear first.
               </p>
               <div className="mt-3 inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-2.5 py-1 text-[10px] font-bold font-mono uppercase">
                 <Shield className="h-3.5 w-3.5 text-[var(--organizer-gold-deep)]" />
                 Scoped event:
-                <span className="bg-[var(--organizer-gold)] px-1.5 py-0.5 text-white">{eventId}</span>
+                <span className="bg-[var(--organizer-gold)] px-1.5 py-0.5 text-[var(--organizer-ink-primary)]">
+                  {eventId}
+                </span>
               </div>
             </div>
 
@@ -364,7 +301,9 @@ export default function JudgeQueuePage() {
               onClick={handleRefresh}
               disabled={refreshing}
               className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-5 py-2.5 text-xs font-bold font-mono uppercase transition-transform hover:-translate-x-1 hover:-translate-y-1 disabled:opacity-50"
-              style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+              style={{
+                boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)",
+              }}
             >
               {refreshing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -383,7 +322,7 @@ export default function JudgeQueuePage() {
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
                 {authError
-                  ? "Authentication required. Enable demo judge session to continue scoring UI, or sign in at /judge-login."
+                  ? "Authentication required. Enable demo judge session to continue scoring UI, or sign in at /login."
                   : "Demo judge mode active — queue seeded for local evaluation."}
               </span>
             </div>
@@ -392,17 +331,21 @@ export default function JudgeQueuePage() {
                 <button
                   type="button"
                   onClick={enableDemoJudge}
-                  className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-4 py-2 text-[10px] font-bold font-mono uppercase text-white"
-                  style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+                  className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-4 py-2 text-[10px] font-bold font-mono uppercase text-[var(--organizer-ink-primary)]"
+                  style={{
+                    boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)",
+                  }}
                 >
                   <Zap className="mr-1 inline h-3.5 w-3.5" />
                   Demo Judge Sign-In
                 </button>
               )}
               <Link
-                href="/judge-login"
+                href="/login"
                 className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-4 py-2 text-[10px] font-bold font-mono uppercase"
-                style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+                style={{
+                  boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)",
+                }}
               >
                 Real Login
               </Link>
@@ -449,20 +392,31 @@ export default function JudgeQueuePage() {
                 </div>
                 <s.icon className="h-4 w-4 text-[var(--organizer-gold-deep)]" />
               </div>
-              <div className="mt-2 text-3xl font-black font-display">{loading ? "—" : s.value}</div>
-              <div className="text-[10px] font-mono text-[var(--organizer-ink-muted)]">{s.sub}</div>
+              <div className="mt-2 text-3xl font-black font-display">
+                {loading ? "—" : s.value}
+              </div>
+              <div className="text-[10px] font-mono text-[var(--organizer-ink-muted)]">
+                {s.sub}
+              </div>
             </div>
           ))}
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex flex-wrap gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-1 shadow-[4px_4px_0px_0px_var(--organizer-ink-primary)]">
+        <div
+          className="mb-6 flex flex-wrap gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-1"
+          style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+        >
           {(
             [
               { id: "all", label: "All Projects", count: counts.total },
               { id: "unscored", label: "Unscored", count: counts.pending },
               { id: "completed", label: "Completed", count: counts.scored },
-              { id: "corrections", label: "Corrections Pending", count: counts.corrections },
+              {
+                id: "corrections",
+                label: "Corrections Pending",
+                count: counts.corrections,
+              },
             ] as const
           ).map((t) => (
             <button
@@ -471,7 +425,7 @@ export default function JudgeQueuePage() {
               onClick={() => setTab(t.id)}
               className={`inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold font-mono uppercase transition-colors ${
                 tab === t.id
-                  ? "border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] text-white"
+                  ? "border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] text-[var(--organizer-ink-primary)]"
                   : "text-[var(--organizer-ink-secondary)] hover:text-[var(--organizer-ink-primary)]"
               }`}
             >
@@ -480,7 +434,7 @@ export default function JudgeQueuePage() {
               <span
                 className={`border px-1.5 py-0.5 text-[9px] ${
                   tab === t.id
-                    ? "border-white/40 bg-black/10"
+                    ? "border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)]"
                     : "border-[var(--organizer-border)] bg-[var(--organizer-bg)]"
                 }`}
               >
@@ -506,7 +460,9 @@ export default function JudgeQueuePage() {
             style={{ boxShadow: "8px 8px 0px 0px var(--organizer-gold)" }}
           >
             <Scale className="mx-auto mb-3 h-10 w-10 text-[var(--organizer-gold-deep)]" />
-            <h2 className="text-2xl font-black font-display uppercase">Queue Empty.</h2>
+            <h2 className="text-2xl font-black font-display uppercase">
+              Queue Empty.
+            </h2>
             <p className="mt-2 text-xs font-mono text-[var(--organizer-ink-muted)]">
               No submissions match this filter for event {eventId}.
             </p>
@@ -525,7 +481,9 @@ export default function JudgeQueuePage() {
                   key={item.id}
                   variants={cardVariants}
                   className="group flex flex-wrap items-center justify-between gap-4 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-4 transition-transform hover:-translate-x-1 hover:-translate-y-1"
-                  style={{ boxShadow: "5px 5px 0px 0px var(--organizer-gold)" }}
+                  style={{
+                    boxShadow: "5px 5px 0px 0px var(--organizer-gold)",
+                  }}
                 >
                   <div className="flex min-w-[240px] items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] font-mono text-xs font-black">
@@ -533,7 +491,7 @@ export default function JudgeQueuePage() {
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-black font-display uppercase tracking-tight group-hover:text-[var(--organizer-gold-deep)]">
+                        <h3 className="text-sm font-black font-display uppercase tracking-tight group-hover:text-[var(--organizer-gold-deep)] transition-colors">
                           {item.title}
                         </h3>
                         <span
@@ -546,7 +504,8 @@ export default function JudgeQueuePage() {
                         {item.teamName} · {item.track}
                       </div>
                       <div className="mt-1 text-[10px] font-mono text-[var(--organizer-ink-muted)]">
-                        Submitted {new Date(item.submittedAt).toLocaleString()}
+                        Submitted{" "}
+                        {new Date(item.submittedAt).toLocaleString()}
                       </div>
                     </div>
                   </div>
@@ -559,11 +518,15 @@ export default function JudgeQueuePage() {
                     )}
                     <Link
                       href={`/judge/queue/${item.id}`}
-                      className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-ink-primary)] px-4 py-2.5 text-[10px] font-bold font-mono uppercase text-white transition-transform hover:-translate-y-0.5"
-                      style={{ boxShadow: "3px 3px 0px 0px var(--organizer-gold)" }}
+                      className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-ink-primary)] px-4 py-2.5 text-[10px] font-bold font-mono uppercase text-[var(--organizer-surface)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--organizer-gold)] hover:text-[var(--organizer-ink-primary)]"
+                      style={{
+                        boxShadow: "3px 3px 0px 0px var(--organizer-gold)",
+                      }}
                     >
-                      {item.status === "scored" ? "Review Score" : "Open Scoring"}
-                      <ArrowRight className="h-3.5 w-3.5 text-[var(--organizer-gold)]" />
+                      {item.status === "scored"
+                        ? "Review Score"
+                        : "Open Scoring"}
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   </div>
                 </motion.div>
@@ -572,6 +535,97 @@ export default function JudgeQueuePage() {
           </motion.div>
         )}
       </div>
+    </>
+  );
+}
+
+export default function JudgeQueuePage() {
+  return (
+    <div className="relative min-h-screen bg-[var(--organizer-bg)] pb-24 text-[var(--organizer-ink-primary)] selection:bg-[var(--organizer-gold)] selection:text-[var(--organizer-ink-primary)]">
+      {/* Scope-specific CSS overrides to transform parent dark navbar into Neo-Brutalist style without touching layout files */}
+      <style>{`
+        header, 
+        nav,
+        [class*="bg-black"], 
+        [class*="bg-neutral-900"], 
+        [class*="bg-zinc-900"],
+        [class*="bg-[#0a0a0a]"],
+        [class*="bg-[#0A0A0A]"] {
+          background-color: var(--organizer-surface) !important;
+          border-bottom: 2px solid var(--organizer-ink-primary) !important;
+          color: var(--organizer-ink-primary) !important;
+        }
+
+        header *, 
+        nav *,
+        [class*="bg-black"] *, 
+        [class*="bg-neutral-900"] *, 
+        [class*="bg-zinc-900"] * {
+          color: var(--organizer-ink-primary) !important;
+          border-color: var(--organizer-ink-primary) !important;
+        }
+
+        header button, 
+        header a, 
+        [class*="bg-black"] button, 
+        [class*="bg-black"] a {
+          background-color: var(--organizer-surface) !important;
+          color: var(--organizer-ink-primary) !important;
+          border: 2px solid var(--organizer-ink-primary) !important;
+          border-radius: 0px !important;
+          box-shadow: 2px 2px 0px 0px var(--organizer-ink-primary) !important;
+          font-weight: 800 !important;
+          font-family: var(--font-mono), monospace !important;
+          text-transform: uppercase !important;
+        }
+
+        header button:hover, 
+        header a:hover, 
+        [class*="bg-black"] button:hover, 
+        [class*="bg-black"] a:hover {
+          background-color: var(--organizer-gold-light) !important;
+          transform: translate(-1px, -1px) !important;
+        }
+      `}</style>
+
+      {/* Blueprint grid */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-80"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, var(--organizer-border) 1px, transparent 1px),
+            linear-gradient(to bottom, var(--organizer-border) 1px, transparent 1px)
+          `,
+          backgroundSize: "40px 40px",
+          maskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
+          WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
+        }}
+      />
+
+      {/* Floating shapes */}
+      <motion.div
+        variants={floatOne}
+        animate="animate"
+        className="pointer-events-none absolute right-12 top-16 z-10 hidden h-16 w-16 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] shadow-[6px_6px_0px_0px_var(--organizer-ink-primary)] lg:flex"
+      >
+        <Gavel className="h-8 w-8 text-[var(--organizer-ink-primary)]" />
+      </motion.div>
+      <motion.div
+        variants={floatTwo}
+        animate="animate"
+        className="pointer-events-none absolute left-10 top-80 z-10 hidden h-14 w-14 items-center justify-center rounded-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] shadow-[6px_6px_0px_0px_var(--organizer-gold)] lg:flex"
+      >
+        <div className="h-5 w-5 rotate-45 bg-[var(--organizer-gold-deep)]" />
+      </motion.div>
+
+      {/* Suspense Wrapper to protect useSearchParams in Next 15 */}
+      <Suspense fallback={
+        <div className="relative z-10 mx-auto flex h-96 max-w-7xl items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--organizer-gold-deep)]" />
+        </div>
+      }>
+        <QueueContent />
+      </Suspense>
     </div>
   );
 }

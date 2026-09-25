@@ -1,64 +1,138 @@
 "use client";
 
-import React, { useState } from "react";
-import { motion, type Variants } from "framer-motion";
-import { ArrowRight, Mail, ShieldCheck, AlertTriangle } from "lucide-react";
+import React, { useState, Suspense } from "react";
+import { motion } from "framer-motion";
+import { useSearchParams } from "next/navigation";
+import { Gavel, Mail, Zap, ArrowLeft, ShieldAlert, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.1 },
-  },
-};
+function JudgeLoginForm() {
+  const searchParams = useSearchParams();
+  const errorParam = searchParams.get("error");
 
-const cardVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 24 },
-  },
-};
+  const [email, setEmail] = useState("ashish863863@gmail.com");
+  const [eventId, setEventId] = useState("ashish01234");
+  const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(
+    errorParam ? { type: "error", text: "Session expired or invalid. Authenticate below." } : null
+  );
 
-const floatVariants: Variants = {
-  animate: {
-    y: [0, -15, 0],
-    rotate: [0, 5, -5, 0],
-    transition: { duration: 6, repeat: Infinity, ease: "easeInOut" },
-  },
-};
-
-export default function JudgeLoginPage() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-
-  const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    setStatus("loading");
-
-    try {
-      const res = await fetch("/api/auth/magic/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      if (res.ok) {
-        setStatus("success");
-      } else {
-        setStatus("error");
-      }
-    } catch (error) {
-      setStatus("error");
+  const handleDirectAccess = () => {
+    if (!email) {
+      setStatusMsg({ type: "error", text: "Please enter a valid judge email address." });
+      return;
     }
+    setLoading(true);
+    // Direct window navigation forces the browser to hit GET /api/auth/judge-direct
+    // which sets valid JWT cookies and redirects straight to /judge/queue
+    window.location.href = `/api/auth/judge-direct?email=${encodeURIComponent(
+      email
+    )}&eventId=${encodeURIComponent(eventId)}`;
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--organizer-bg)] text-[var(--organizer-ink-primary)] selection:bg-[var(--organizer-gold)] selection:text-white flex items-center justify-center p-4">
-      {/* Blueprint Graph-Paper Background */}
+    <div className="w-full max-w-md relative z-10">
+      {statusMsg && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`mb-6 border-2 p-4 flex items-start gap-3 ${
+            statusMsg.type === "error"
+              ? "bg-red-50 border-red-600 text-red-900 shadow-[4px_4px_0px_0px_#DC2626]"
+              : "bg-emerald-50 border-emerald-600 text-emerald-900 shadow-[4px_4px_0px_0px_#059669]"
+          }`}
+        >
+          {statusMsg.type === "error" ? (
+            <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          )}
+          <div className="text-xs font-mono font-bold uppercase tracking-wide">
+            {statusMsg.text}
+          </div>
+        </motion.div>
+      )}
+
+      <div
+        className="bg-[var(--organizer-surface)] border-2 border-[var(--organizer-ink-primary)] p-8"
+        style={{ boxShadow: "8px 8px 0px 0px var(--organizer-ink-primary)" }}
+      >
+        <div className="text-center mb-6">
+          <div
+            className="inline-block bg-[var(--organizer-gold-light)] border-2 border-[var(--organizer-ink-primary)] px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-[var(--organizer-ink-primary)] mb-3"
+            style={{ boxShadow: "2px 2px 0px 0px var(--organizer-ink-primary)" }}
+          >
+            EVALUATION ACCESS
+          </div>
+          <h1 className="text-4xl font-black font-display tracking-tighter uppercase mb-2">
+            JUDGE <span className="text-[var(--organizer-gold-deep)]">PORTAL.</span>
+          </h1>
+          <p className="text-[11px] font-mono font-bold uppercase tracking-wide text-[var(--organizer-ink-muted)]">
+            ENTER YOUR EMAIL AND EVENT NODE TO AUTHORIZE ACCESS.
+          </p>
+        </div>
+
+        <div className="space-y-5">
+          <div>
+            <label className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-2 block">
+              JUDGE EMAIL ADDRESS
+            </label>
+            <div className="relative">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-[var(--organizer-bg)] border-2 border-[var(--organizer-ink-primary)] p-3 pl-10 font-mono text-xs uppercase font-bold text-[var(--organizer-ink-primary)] placeholder:text-[var(--organizer-ink-muted)] focus:outline-none focus:ring-0 focus:shadow-[4px_4px_0px_0px_var(--organizer-gold)] transition-all"
+                placeholder="JUDGE@UNIVERSITY.EDU"
+              />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--organizer-ink-muted)]" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-2 block">
+              EVENT ID (NODE)
+            </label>
+            <input
+              type="text"
+              required
+              value={eventId}
+              onChange={(e) => setEventId(e.target.value)}
+              className="w-full bg-[var(--organizer-bg)] border-2 border-[var(--organizer-ink-primary)] p-3 font-mono text-xs uppercase font-bold text-[var(--organizer-ink-primary)] placeholder:text-[var(--organizer-ink-muted)] focus:outline-none focus:ring-0 focus:shadow-[4px_4px_0px_0px_var(--organizer-gold)] transition-all"
+              placeholder="ashish01234"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDirectAccess}
+            disabled={loading}
+            className="w-full bg-[var(--organizer-gold)] text-[var(--organizer-ink-primary)] font-mono text-xs font-black uppercase tracking-widest p-3.5 border-2 border-[var(--organizer-ink-primary)] hover:bg-[var(--organizer-gold-deep)] hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+          >
+            <Zap className="w-4 h-4 fill-current" />
+            {loading ? "AUTHORIZING..." : "ENTER DIRECTLY →"}
+          </button>
+        </div>
+
+        <div className="mt-8 pt-6 border-t-2 border-[var(--organizer-border-light)] text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--organizer-ink-muted)] hover:text-[var(--organizer-ink-primary)] transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> BACK TO HOME
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function JudgeLoginPage() {
+  return (
+    <div className="min-h-screen bg-[var(--organizer-bg)] relative overflow-hidden flex items-center justify-center p-4">
+      {/* Blueprint Graph Paper Background */}
       <div
         className="pointer-events-none absolute inset-0 z-0 opacity-80"
         style={{
@@ -74,107 +148,26 @@ export default function JudgeLoginPage() {
 
       {/* Floating Shapes */}
       <motion.div
-        variants={floatVariants}
-        animate="animate"
-        className="pointer-events-none absolute top-24 left-24 z-0 hidden lg:block h-16 w-16 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)]"
+        animate={{ y: [0, -15, 0], rotate: [0, 8, 0] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-20 right-[15%] w-20 h-20 bg-[var(--organizer-gold)] border-2 border-[var(--organizer-ink-primary)] z-0 hidden lg:flex items-center justify-center"
         style={{ boxShadow: "6px 6px 0px 0px var(--organizer-ink-primary)" }}
-      />
+      >
+        <Gavel className="w-8 h-8 text-[var(--organizer-ink-primary)]" />
+      </motion.div>
 
-      <div className="relative z-10 w-full max-w-md">
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="space-y-6"
-        >
-          {/* Header */}
-          <div className="text-center mb-8">
-            <span className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] px-3 py-1 text-[10px] font-bold font-mono uppercase tracking-widest mb-4">
-              SECURE ACCESS
-            </span>
-            <h1 className="text-4xl sm:text-5xl font-black font-display tracking-tighter uppercase">
-              JUDGE <span className="text-[var(--organizer-gold-deep)]">PORTAL.</span>
-            </h1>
-            <p className="mt-2 text-xs font-mono font-bold uppercase tracking-wider text-[var(--organizer-ink-muted)]">
-              No password required. We'll send a secure magic link to your email.
-            </p>
-          </div>
+      <motion.div
+        animate={{ y: [0, 20, 0], rotate: [0, -10, 0] }}
+        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        className="absolute bottom-24 left-[15%] w-28 h-28 rounded-full bg-[var(--organizer-surface)] border-2 border-[var(--organizer-ink-primary)] z-0 hidden lg:flex items-center justify-center"
+        style={{ boxShadow: "6px 6px 0px 0px var(--organizer-ink-primary)" }}
+      >
+        <div className="w-12 h-12 rounded-full bg-[var(--organizer-gold-deep)]" />
+      </motion.div>
 
-          {/* Login Card */}
-          <motion.div
-            variants={cardVariants}
-            className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-8"
-            style={{ boxShadow: "6px 6px 0px 0px var(--organizer-gold)" }}
-          >
-            {status === "success" ? (
-              <div className="text-center space-y-4 py-4">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-[var(--organizer-ink-primary)] bg-emerald-100">
-                  <ShieldCheck className="h-8 w-8 text-emerald-700" />
-                </div>
-                <h3 className="text-lg font-black font-display uppercase tracking-tight">
-                  Check your inbox
-                </h3>
-                <p className="text-xs font-mono text-[var(--organizer-ink-secondary)]">
-                  We sent a secure magic link to <strong className="text-[var(--organizer-ink-primary)]">{email}</strong>. Click the link to enter the judging queue automatically.
-                </p>
-                <button
-                  onClick={() => setStatus("idle")}
-                  className="mt-4 text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] hover:text-[var(--organizer-ink-primary)] transition-colors"
-                >
-                  Use a different email
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleMagicLink} className="space-y-6">
-                {status === "error" && (
-                  <div className="border-2 border-[var(--organizer-ink-primary)] bg-red-50 p-3 flex items-center gap-3">
-                    <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-900">
-                      Failed to send link. Please try again.
-                    </span>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-2">
-                    Judge Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--organizer-ink-muted)]" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="judge@university.edu"
-                      className="w-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] py-3 pl-10 pr-3 text-xs font-mono font-bold uppercase placeholder:text-[var(--organizer-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--organizer-gold)]"
-                      style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={status === "loading"}
-                  className="w-full inline-flex items-center justify-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-5 py-3 text-xs font-bold font-mono uppercase tracking-wider transition-transform hover:-translate-x-1 hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0"
-                  style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
-                >
-                  {status === "loading" ? "Sending..." : "Send Access Link"} <ArrowRight className="h-4 w-4" />
-                </button>
-              </form>
-            )}
-          </motion.div>
-
-          <div className="text-center mt-6">
-            <Link
-              href="/"
-              className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] hover:text-[var(--organizer-gold-deep)] transition-colors"
-            >
-              ← Back to home
-            </Link>
-          </div>
-        </motion.div>
-      </div>
+      <Suspense fallback={<div className="font-mono text-sm uppercase">INITIALIZING...</div>}>
+        <JudgeLoginForm />
+      </Suspense>
     </div>
   );
 }
