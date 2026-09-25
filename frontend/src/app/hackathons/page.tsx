@@ -1,0 +1,428 @@
+"use client";
+
+import React, { useState } from "react";
+import { motion, type Variants } from "framer-motion";
+import { 
+  Calendar, 
+  MapPin, 
+  Users, 
+  Sparkles, 
+  Search, 
+  ArrowRight, 
+  Layers, 
+  Zap, 
+  Code2, 
+  Cpu, 
+  Globe, 
+  Radio
+} from "lucide-react";
+import Link from "next/link";
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1,
+    },
+  },
+};
+
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 24,
+    },
+  },
+};
+
+const floatVariantsOne: Variants = {
+  animate: {
+    y: [0, -15, 0],
+    rotate: [12, 17, 7, 12],
+    transition: {
+      duration: 6,
+      repeat: Infinity,
+      ease: "easeInOut",
+    },
+  },
+};
+
+const floatVariantsTwo: Variants = {
+  animate: {
+    y: [0, 15, 0],
+    rotate: [-8, -3, -13, -8],
+    transition: {
+      duration: 7,
+      repeat: Infinity,
+      ease: "easeInOut",
+    },
+  },
+};
+
+interface Hackathon {
+  id: string;
+  title: string;
+  edition: string;
+  status: "live" | "upcoming" | "completed";
+  tagline: string;
+  startDate: string;
+  location: string;
+  registrants: number;
+  prizePool: string;
+  tracks: string[];
+  logoBackground: string;
+  icon: React.ReactNode;
+}
+
+const HACKATHONS: Hackathon[] = [
+  {
+    id: "nexhack-2.0",
+    title: "NEXHACK",
+    edition: "2.0",
+    status: "live",
+    tagline: "BUILD THE AGENTIC INTERFACE LAYER FOR DECENTRALIZED COGNITIVE AGENTS.",
+    startDate: "HAPPENING NOW // FEB 20-23, 2026",
+    location: "SAN FRANCISCO, CA + VIRTUAL",
+    registrants: 1248,
+    prizePool: "$75,000",
+    tracks: ["AGENTIC UX", "LLM COMPILER PIPELINES", "ZERO KNOWLEDGE AGENTS"],
+    logoBackground: "var(--organizer-gold-light)",
+    icon: <Cpu className="h-8 w-8 text-[var(--organizer-gold-deep)]" />,
+  },
+  {
+    id: "neuroscribe-2026",
+    title: "NEUROSCRIBE",
+    edition: "AI HACK",
+    status: "upcoming",
+    tagline: "RE-ENGINEERING SYNTHETIC BIOLOGY INTERFACES & INTELLECTUAL CODES.",
+    startDate: "APRIL 14-17, 2026",
+    location: "BOSTON, MA // HYBRID",
+    registrants: 890,
+    prizePool: "$50,000",
+    tracks: ["SYNTHETIC BIO AGENTS", "PROTEIN GRAPH ANALYSIS", "LEGAL AI"],
+    logoBackground: "#F5F5F0",
+    icon: <Code2 className="h-8 w-8 text-[var(--organizer-ink-primary)]" />,
+  },
+  {
+    id: "zk-edge-2026",
+    title: "ZK-EDGE",
+    edition: "COHORT III",
+    status: "upcoming",
+    tagline: "CRYPTOGRAPHIC INTEGRITY MEETS ULTRA-LOW LATENCY EDGE HARDWARE.",
+    startDate: "JUNE 19-22, 2026",
+    location: "AUSTIN, TX + GLOBAL STREAM",
+    registrants: 1550,
+    prizePool: "$100,000",
+    tracks: ["ZK-ROLLUP AGENTS", "RISC-V EMULATION", "SECURE DECENTRALIZED DATA"],
+    logoBackground: "#E6E5E0",
+    icon: <Layers className="h-8 w-8 text-[var(--organizer-ink-secondary)]" />,
+  },
+  {
+    id: "consensys-alpha",
+    title: "CONSENSYS",
+    edition: "ALPHA",
+    status: "upcoming",
+    tagline: "ORCHESTRATING HIGH-THROUGHPUT CONSENSUS ARCHITECTURES.",
+    startDate: "SEPTEMBER 04-07, 2026",
+    location: "CHICAGO, IL // PHYSICAL ONLY",
+    registrants: 640,
+    prizePool: "$40,000",
+    tracks: ["DISTRIBUTED SCHEDULERS", "EVM EXECUTION FORKS", "STABLE PROTOCOLS"],
+    logoBackground: "var(--organizer-gold-champagne)",
+    icon: <Globe className="h-8 w-8 text-[var(--organizer-gold-deep)]" />,
+  },
+];
+
+export default function HackathonsPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterTrack, setFilterTrack] = useState("ALL");
+
+  const uniqueTracks = ["ALL", "AGENTIC UX", "SYNTHETIC BIO AGENTS", "ZK-ROLLUP AGENTS", "DISTRIBUTED SCHEDULERS"];
+
+  const filteredHackathons = HACKATHONS.filter((h) => {
+    const matchesSearch = h.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          h.tagline.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTrack = filterTrack === "ALL" || h.tracks.some(t => t.toUpperCase() === filterTrack.toUpperCase());
+    return matchesSearch && matchesTrack;
+  });
+
+  return (
+    <div className="relative min-h-screen bg-[var(--organizer-bg)] text-[var(--organizer-ink-primary)] selection:bg-[var(--organizer-gold)] selection:text-white pb-24">
+      {/* Blueprint Graph-Paper Grid Background */}
+      <div 
+        className="pointer-events-none absolute inset-0 z-0 opacity-80"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, var(--organizer-border) 1px, transparent 1px),
+            linear-gradient(to bottom, var(--organizer-border) 1px, transparent 1px)
+          `,
+          backgroundSize: "40px 40px",
+          maskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
+          WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 95%)",
+        }}
+      />
+
+      {/* Floating Geometric Decorative Elements */}
+      <motion.div
+        variants={floatVariantsOne}
+        animate="animate"
+        className="pointer-events-none absolute top-20 right-16 hidden lg:flex h-20 w-20 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] text-white shadow-[6px_6px_0px_0px_var(--organizer-ink-primary)] z-10"
+      >
+        <Zap className="h-10 w-10 fill-white stroke-[var(--organizer-ink-primary)] stroke-2" />
+      </motion.div>
+
+      <motion.div
+        variants={floatVariantsTwo}
+        animate="animate"
+        className="pointer-events-none absolute top-96 left-12 hidden lg:flex h-16 w-16 rounded-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-2 shadow-[6px_6px_0px_0px_var(--organizer-gold)] z-10 items-center justify-center"
+      >
+        <div className="h-6 w-6 rounded-full bg-[var(--organizer-gold-deep)] animate-pulse" />
+      </motion.div>
+
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pt-12 sm:px-6 lg:px-8">
+        
+        {/* Header Section */}
+        <div className="mb-12 border-b-2 border-[var(--organizer-ink-primary)] pb-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] px-3 py-1 text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-secondary)] mb-4">
+                <Sparkles className="h-3.5 w-3.5 text-[var(--organizer-gold-deep)]" />
+                ACTIVE CHAMPIONSHIPS & COHORTS
+              </div>
+              <h1 className="text-5xl md:text-7xl font-black font-display tracking-tighter uppercase leading-none">
+                HACKATHON <span className="text-[var(--organizer-gold-deep)]">ARENA.</span>
+              </h1>
+            </div>
+
+            <Link
+              href="/sponsors/register"
+              className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-5 py-2.5 text-xs font-bold font-mono uppercase tracking-wider text-[var(--organizer-ink-primary)] transition-transform hover:-translate-x-1 hover:-translate-y-1"
+              style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              SPONSOR AN EVENT
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Filter Toolbar */}
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          {/* Search */}
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--organizer-ink-muted)]" />
+            <input
+              type="text"
+              placeholder="SEARCH HACKATHONS..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] py-3 pl-10 pr-4 text-xs font-mono font-bold uppercase tracking-wider placeholder:text-[var(--organizer-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--organizer-gold)]"
+              style={{ boxShadow: "4px 4px 0px 0px var(--organizer-ink-primary)" }}
+            />
+          </div>
+
+          {/* Track Filter Selectors */}
+          <div className="flex flex-wrap gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-1 shadow-[4px_4px_0px_0px_var(--organizer-ink-primary)]">
+            {uniqueTracks.map((track) => (
+              <button
+                key={track}
+                onClick={() => setFilterTrack(track)}
+                className={`px-3 py-1.5 text-[10px] font-mono font-bold uppercase transition-colors ${
+                  filterTrack === track
+                    ? "bg-[var(--organizer-gold)] text-white border border-[var(--organizer-ink-primary)]"
+                    : "text-[var(--organizer-ink-secondary)] hover:text-[var(--organizer-ink-primary)]"
+                }`}
+              >
+                {track}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Live Broadcast Feature (NexHack 2.0) */}
+        {filteredHackathons.some((h) => h.status === "live") && (
+          <div className="mb-12">
+            <div className="flex items-center gap-2 text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-4">
+              <Radio className="h-3.5 w-3.5 text-red-600 animate-pulse" />
+              ONGOING HACKATHON
+            </div>
+            {filteredHackathons
+              .filter((h) => h.status === "live")
+              .map((hack) => (
+                <div
+                  key={hack.id}
+                  className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] p-6 md:p-8 relative transition-transform hover:-translate-y-1"
+                  style={{ boxShadow: "10px 10px 0px 0px var(--organizer-gold)" }}
+                >
+                  <div className="absolute top-4 right-4 md:top-6 md:right-6 border-2 border-[var(--organizer-ink-primary)] bg-red-600 px-3 py-1 text-[9px] font-mono font-black uppercase text-white animate-pulse">
+                    LIVE SYSTEM ACTIVE
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                    <div className="lg:col-span-8 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] shadow-[3px_3px_0px_0px_var(--organizer-ink-primary)]">
+                          {hack.icon}
+                        </div>
+                        <div>
+                          <h2 className="text-3xl md:text-5xl font-black font-display tracking-tight leading-none text-[var(--organizer-ink-primary)]">
+                            {hack.title} <span className="text-[var(--organizer-gold-deep)]">{hack.edition}</span>
+                          </h2>
+                          <div className="text-[10px] font-mono font-bold text-[var(--organizer-ink-muted)] mt-1">
+                            {hack.startDate} // {hack.location}
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-xs md:text-sm font-mono font-bold text-[var(--organizer-ink-secondary)] leading-relaxed max-w-3xl">
+                        {hack.tagline}
+                      </p>
+
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {hack.tracks.map((track) => (
+                          <span
+                            key={track}
+                            className="border border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] px-2.5 py-0.5 text-[9px] font-bold font-mono uppercase text-[var(--organizer-ink-primary)]"
+                          >
+                            {track}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-4 border-l-0 lg:border-l-2 border-[var(--organizer-ink-primary)] pl-0 lg:pl-8 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-[9px] font-bold font-mono uppercase text-[var(--organizer-ink-muted)]">
+                            TOTAL RECRUITS
+                          </div>
+                          <div className="text-2xl font-black font-display text-[var(--organizer-ink-primary)]">
+                            {hack.registrants.toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] font-bold font-mono uppercase text-[var(--organizer-ink-muted)]">
+                            PRIZE POOL
+                          </div>
+                          <div className="text-2xl font-black font-display text-[var(--organizer-gold-deep)]">
+                            {hack.prizePool}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <Link
+                          href={`/events/${hack.id}`}
+                          className="w-full inline-flex items-center justify-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-ink-primary)] text-white py-3 text-xs font-mono font-black uppercase tracking-wider transition-transform hover:-translate-x-1 hover:-translate-y-1"
+                          style={{ boxShadow: "4px 4px 0px 0px var(--organizer-gold)" }}
+                        >
+                          ENTER WORKSPACE
+                          <ArrowRight className="h-4 w-4 text-[var(--organizer-gold)]" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {/* Upcoming Hackathons List */}
+        <div>
+          <div className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] mb-4">
+            🗓️ UPCOMING HACKATHONS
+          </div>
+
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+          >
+            {filteredHackathons
+              .filter((h) => h.status === "upcoming")
+              .map((hack) => (
+                <motion.div
+                  key={hack.id}
+                  variants={cardVariants}
+                  className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-6 transition-transform hover:-translate-y-2 hover:-translate-x-1 flex flex-col justify-between"
+                  style={{ boxShadow: "6px 6px 0px 0px var(--organizer-ink-primary)" }}
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b-2 border-[var(--organizer-border)] pb-3">
+                      <div className="flex h-10 w-10 items-center justify-center border-2 border-[var(--organizer-ink-primary)]" style={{ backgroundColor: hack.logoBackground }}>
+                        {hack.icon}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-mono font-black text-[var(--organizer-gold-deep)]">
+                          {hack.title}
+                        </div>
+                        <div className="text-[9px] font-mono font-bold text-[var(--organizer-ink-muted)]">
+                          {hack.edition}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-black font-display uppercase tracking-tight text-[var(--organizer-ink-primary)]">
+                        {hack.tagline}
+                      </h3>
+                      
+                      <div className="space-y-1 text-[11px] font-mono font-bold text-[var(--organizer-ink-muted)]">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-[var(--organizer-gold)]" />
+                          <span>{hack.startDate}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-[var(--organizer-gold)]" />
+                          <span>{hack.location}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-2">
+                      {hack.tracks.slice(0, 2).map((track) => (
+                        <span
+                          key={track}
+                          className="border border-[var(--organizer-border)] bg-[var(--organizer-bg)] px-2 py-0.5 text-[8px] font-bold font-mono uppercase text-[var(--organizer-ink-secondary)]"
+                        >
+                          {track}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 border-t-2 border-[var(--organizer-border)] pt-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-[8px] font-bold font-mono uppercase text-[var(--organizer-ink-muted)]">
+                        EXPECTED BUILDERS
+                      </div>
+                      <div className="text-xs font-black font-mono text-[var(--organizer-ink-primary)]">
+                        {hack.registrants} PARTICIPANTS
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/events/${hack.id}/register`}
+                      className="inline-flex items-center gap-1 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-4 py-2 text-[10px] font-mono font-black uppercase tracking-wider text-[var(--organizer-ink-primary)] transition-transform hover:-translate-x-1 hover:-translate-y-1"
+                      style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+                    >
+                      REGISTER
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </motion.div>
+              ))}
+          </motion.div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
