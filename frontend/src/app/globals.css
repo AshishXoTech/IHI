@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   IHI DESIGN SYSTEM — WHITE / BLACK / GOLD (MLH / HackerEarth Style)
+   ========================================================================== */
+
+:root {
+  /* Core Base Colors */
+  --color-white: #ffffff;
+  --color-black: #0a0a0a;
+  --color-gold: #c9a227;
+  --color-gold-light: #e4c65a;
+  --color-gold-dark: #a4841c;
+  
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #e5e5e5;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-700: #404040;
+  --color-gray-800: #262626;
+  --color-gray-900: #171717;
+
+  /* Fonts mapped to Next.js variables */
+  --font-display: var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif;
+  --font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
+
+  /* Motion Defaults */
+  --dur-slow: 400ms;
+  --dur-normal: 250ms;
+  --dur-micro: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-body);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: auto;
+  }
+
+  body {
+    background-color: var(--color-white);
+    color: var(--color-black);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    color: var(--color-black);
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+
+  code, pre {
+    font-family: var(--font-mono);
+  }
+
+  ::selection {
+    background-color: var(--color-gold);
+    color: var(--color-black);
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@layer utilities {
+  /* Crisp Gold Gradient for Headlines */
+  .text-gradient-gold {
+    color: var(--color-black); /* Solid fallback */
+    background: linear-gradient(135deg, #c9a227, #e4c65a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  [data-register="tower"] .text-gradient-gold,
+  .theme-tower .text-gradient-gold {
+    color: var(--color-white);
+  }
+
+  /* Section Spacing */
+  .section-py {
+    padding-top: 64px;
+    padding-bottom: 64px;
+  }
+  @media (min-width: 768px) {
+    .section-py { padding-top: 80px; padding-bottom: 80px; }
+  }
+  @media (min-width: 1024px) {
+    .section-py { padding-top: 120px; padding-bottom: 120px; }
+  }
+}
+
+/* --- Framer Motion CSS Fallbacks (from your original code) --- */
+@media (prefers-reduced-motion: no-preference) {
+  .ihi-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity var(--dur-slow) var(--ease-out), 
+                transform var(--dur-slow) var(--ease-out);
+  }
+  .ihi-reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ihi-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
