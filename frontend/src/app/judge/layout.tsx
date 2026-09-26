@@ -1,78 +1,62 @@
-import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
-import { JudgeNav } from "@/components/judging/JudgeNav";
+"use client";
 
-export default async function JudgeLayout({
+import React from "react";
+import Link from "next/link";
+import { LogOut, Shield } from "lucide-react";
+
+export default function JudgeLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  try {
-    await requireRole("judge");
-  } catch {
-    redirect("/login?error=SESSION_EXPIRED");
-  }
-
   return (
-    <div
-      data-register="tower"
-      className="theme-tower relative min-h-screen bg-black text-white antialiased overflow-hidden"
-    >
-      {/* ==========================================================================
-          PREMIUM BACKGROUND: Diagonal { I H I } + Blueprint Grid
-          ========================================================================== */}
-      <div className="fixed inset-0 z-0 pointer-events-none select-none overflow-hidden">
-        {/* Subtle Dark Blueprint Grid */}
-        <div
-          className="absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, #FFFFFF 1px, transparent 1px), linear-gradient(to bottom, #FFFFFF 1px, transparent 1px)",
-            backgroundSize: "64px 64px",
-            maskImage:
-              "radial-gradient(ellipse at center, black 20%, transparent 85%)",
-            WebkitMaskImage:
-              "radial-gradient(ellipse at center, black 20%, transparent 85%)",
-          }}
-        />
+    <div className="min-h-screen bg-[var(--organizer-bg)] text-[var(--organizer-ink-primary)] flex flex-col font-sans">
+      {/* Top Judge Navigation Header */}
+      <header className="sticky top-0 z-50 bg-[var(--organizer-surface)] border-b-2 border-[var(--organizer-ink-primary)] px-4 sm:px-6 py-3 shadow-[0_2px_0_0_var(--organizer-ink-primary)]">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          {/* Left Brand Mark */}
+          <div className="flex items-center gap-4">
+            <Link href="/judge/queue" className="flex items-center gap-3 group">
+              <div
+                className="flex items-center justify-center px-3 py-1 bg-[var(--organizer-surface)] border-2 border-[var(--organizer-ink-primary)] font-display font-black text-xl text-[var(--organizer-gold-deep)] tracking-tighter transition-transform group-hover:-translate-y-0.5"
+                style={{ boxShadow: "2px 2px 0px 0px var(--organizer-ink-primary)" }}
+              >
+                {"{ihi}"}
+              </div>
+              <div className="hidden sm:flex flex-col">
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[var(--organizer-ink-muted)] leading-none mb-1">
+                  INNOVATIVE HACK INTELLIGENCE
+                </span>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--organizer-ink-primary)] leading-none">
+                  EVALUATION PORTAL
+                </span>
+              </div>
+            </Link>
+          </div>
 
-        {/* Diagonal Giant { I H I } Background */}
-        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 -rotate-12 items-center gap-6 opacity-[0.06]">
-          <span className="font-display text-[16rem] md:text-[22rem] font-black text-gray-500">
-            {"{"}
-          </span>
-          <span
-            className="font-display text-[18rem] md:text-[28rem] font-black tracking-tighter"
-            style={{ color: "#E4574C" }} /* Brand Red */
-          >
-            I
-          </span>
-          <span
-            className="font-display text-[18rem] md:text-[28rem] font-black tracking-tighter"
-            style={{ color: "#2FB67C" }} /* Brand Green */
-          >
-            H
-          </span>
-          <span
-            className="font-display text-[18rem] md:text-[28rem] font-black tracking-tighter"
-            style={{ color: "#3E6FF3" }} /* Brand Blue */
-          >
-            I
-          </span>
-          <span className="font-display text-[16rem] md:text-[22rem] font-black text-gray-500">
-            {"}"}
-          </span>
+          {/* Right Session Controls */}
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[var(--organizer-gold-light)] border-2 border-[var(--organizer-ink-primary)]">
+              <Shield className="w-3.5 h-3.5 text-[var(--organizer-gold-deep)]" />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[var(--organizer-gold-deep)]">
+                SECURE JUDGE NODE
+              </span>
+            </div>
+
+            <Link
+              href="/login"
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-[var(--organizer-surface)] border-2 border-[var(--organizer-ink-primary)] font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--organizer-ink-primary)] hover:bg-[var(--organizer-gold)] transition-all"
+              style={{ boxShadow: "2px 2px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              END SESSION
+            </Link>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* ==========================================================================
-          FOREGROUND CONTENT
-          ========================================================================== */}
-      <div className="relative z-10">
-        <JudgeNav />
-        {/* Offset fixed JudgeNav */}
-        <div className="pt-14 md:pt-16">{children}</div>
-      </div>
+      {/* Main Content Area */}
+      <main className="flex-1">{children}</main>
     </div>
   );
 }

@@ -1,247 +1,178 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import type { ApiResult, AssignedSubmissionItem, Score } from "@/types/shared";
+import { createClient } from "@supabase/supabase-js";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // Use Service Role Key if present, otherwise fall back cleanly to Anon Key
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY in environment variables."
+    );
+  }
+
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { searchParams } = new URL(request.url);
+    const eventId = searchParams.get("eventId") || undefined;
 
-    if (!user) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Authentication required.",
-          code: "unauthorized",
-        } satisfies ApiResult<never>,
-        { status: 401 }
-      );
-    }
+    const supabase = getSupabaseClient();
 
-    // ─────────────────────────────────────────────────────────
-    // 1. Try explicit assignments for this judge
-    // Support both column names: judge_user_id and judge_id
-    // ─────────────────────────────────────────────────────────
-    let assignments: any[] | null = null;
+    // 1. Try full query with teams join
+    let rows: any[] | null = null;
+    let queryError: string | null = null;
 
-    const attemptA = await supabase
-      .from("judge_assignments")
-      .select("id, event_id, submission_id, status, judge_user_id, judge_id")
-      .eq("judge_user_id", user.id);
-
-    if (!attemptA.error && attemptA.data) {
-      assignments = attemptA.data;
-    } else {
-      const attemptB = await supabase
-        .from("judge_assignments")
-        .select("id, event_id, submission_id, status, judge_user_id, judge_id")
-        .eq("judge_id", user.id);
-
-      if (!attemptB.error && attemptB.data) {
-        assignments = attemptB.data;
-      }
-    }
-
-    const hasAssignments = Boolean(assignments && assignments.length > 0);
-
-    // ─────────────────────────────────────────────────────────
-    // 2. Resolve submission IDs
-    // If no assignments exist yet → DEMO FALLBACK: show ALL submissions
-    // so the judge queue is never empty after a real project is submitted.
-    // ─────────────────────────────────────────────────────────
-    let submissionIds: string[] = [];
-
-    if (hasAssignments) {
-      submissionIds = (assignments || [])
-        .map((a) => a.submission_id)
-        .filter((id): id is string => Boolean(id));
-    } else {
-      const { data: allSubs } = await supabase
-        .from("submissions")
-        .select("id")
-        .order("created_at", { ascending: false });
-
-      submissionIds = (allSubs || []).map((s: any) => s.id);
-    }
-
-    if (submissionIds.length === 0) {
-      return NextResponse.json({
-        ok: true,
-        data: [],
-      } satisfies ApiResult<AssignedSubmissionItem[]>);
-    }
-
-    // ─────────────────────────────────────────────────────────
-    // 3. Fetch submission details (schema-flexible)
-    // ─────────────────────────────────────────────────────────
-    let submissions: any[] = [];
-
-    const subJoin = await supabase
+    const fullQuery = await supabase
       .from("submissions")
-      .select("id, title, description, repo_url, demo_url, event_id, team_id, fields, teams(name), ai_briefings(*)")
-      .in("id", submissionIds);
+      .select(
+        `
+        id,
+        title,
+        description,
+        repo_url,
+        demo_url,
+        track,
+        status,
+        created_at,
+        submitted_at,
+        event_id,
+        team_id,
+        fields,
+        teams ( id, name )
+      `
+      )
+      .order("created_at", { ascending: false })
+      .limit(100);
 
-    if (!subJoin.error && subJoin.data) {
-      submissions = subJoin.data;
+    if (!fullQuery.error) {
+      rows = fullQuery.data;
     } else {
-      const subPlain = await supabase
+      queryError = fullQuery.error.message;
+      console.warn("[queue] Full query warning:", queryError);
+
+      // 2. Fallback query without relational joins (bare columns)
+      const bareQuery = await supabase
         .from("submissions")
         .select("*")
-        .in("id", submissionIds);
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-      submissions = subPlain.data || [];
-    }
-
-    const submissionMap = new Map(
-      submissions.map((s: any) => {
-        const title =
-          s.title ||
-          s.fields?.title ||
-          s.fields?.project_title ||
-          "Untitled Project";
-
-        const teamName =
-          s.teams?.name ||
-          s.team_name ||
-          "Team";
-
-        return [
-          s.id,
-          {
-            project_title: title,
-            team_name: teamName,
-            event_id: s.event_id || null,
-            repo_url: s.repo_url || null,
-            description: s.description || s.fields?.description || null,
-            ai_briefing: Array.isArray(s.ai_briefings)
-              ? s.ai_briefings[0] || null
-              : s.ai_briefings || null,
-          },
-        ];
-      })
-    );
-
-    // ─────────────────────────────────────────────────────────
-    // 4. Fetch existing scores for this judge
-    // Support judge_user_id and judge_id
-    // ─────────────────────────────────────────────────────────
-    let scores: any[] = [];
-
-    const scoreA = await supabase
-      .from("scores")
-      .select("*")
-      .eq("judge_user_id", user.id)
-      .in("submission_id", submissionIds);
-
-    if (!scoreA.error && scoreA.data) {
-      scores = scoreA.data;
-    } else {
-      const scoreB = await supabase
-        .from("scores")
-        .select("*")
-        .eq("judge_id", user.id)
-        .in("submission_id", submissionIds);
-
-      scores = scoreB.data || [];
-    }
-
-    const scoreMap = new Map<string, Score>();
-    for (const s of scores) {
-      // Keep one representative score row per submission
-      if (!scoreMap.has(s.submission_id)) {
-        scoreMap.set(s.submission_id, s as Score);
+      if (!bareQuery.error) {
+        rows = bareQuery.data;
+      } else {
+        console.error("[queue] Bare query error:", bareQuery.error.message);
+        // Return 200 with empty list so front-end gracefully renders "Queue Empty"
+        return NextResponse.json({
+          ok: true,
+          items: [],
+          count: 0,
+          warning: bareQuery.error.message,
+          eventId: eventId ?? null,
+        });
       }
     }
 
-    // ─────────────────────────────────────────────────────────
-    // 5. Fetch pending correction requests
-    // ─────────────────────────────────────────────────────────
-    let corrections: any[] = [];
-
-    const corrA = await supabase
-      .from("correction_requests")
-      .select("submission_id")
-      .eq("judge_user_id", user.id)
-      .in("status", ["pending", "pending_organizer_review"])
-      .in("submission_id", submissionIds);
-
-    if (!corrA.error && corrA.data) {
-      corrections = corrA.data;
-    } else {
-      const corrB = await supabase
-        .from("correction_requests")
-        .select("submission_id")
-        .eq("judge_id", user.id)
-        .in("status", ["pending", "pending_organizer_review"])
-        .in("submission_id", submissionIds);
-
-      corrections = corrB.data || [];
-    }
-
-    const pendingCorrectionSet = new Set(
-      (corrections || []).map((c: any) => c.submission_id)
-    );
-
-    // ─────────────────────────────────────────────────────────
-    // 6. Build response items
-    // ─────────────────────────────────────────────────────────
-    let items: AssignedSubmissionItem[] = [];
-
-    if (hasAssignments) {
-      items = (assignments || []).map((a) => {
-        const subId = a.submission_id || "";
-        const subMeta = submissionMap.get(subId);
-        const existingScore = scoreMap.get(subId) || null;
-
-        return {
-          assignment_id: a.id,
-          submission_id: subId,
-          event_id: a.event_id || subMeta?.event_id || "",
-          status: (a.status as "assigned" | "in_progress" | "completed") || "assigned",
-          project_title: subMeta?.project_title || "Project Handoff",
-          team_name: subMeta?.team_name || "Assigned Team",
-          is_scored: Boolean(existingScore),
-          score: existingScore,
-          has_pending_correction: pendingCorrectionSet.has(subId),
-        } as AssignedSubmissionItem;
-      });
-    } else {
-      // Demo fallback: synthesize queue items from all submissions
-      items = submissionIds.map((subId, index) => {
-        const subMeta = submissionMap.get(subId);
-        const existingScore = scoreMap.get(subId) || null;
-
-        return {
-          assignment_id: `auto_${subId}_${index}`,
-          submission_id: subId,
-          event_id: subMeta?.event_id || "",
-          status: existingScore ? "completed" : "assigned",
-          project_title: subMeta?.project_title || "Untitled Project",
-          team_name: subMeta?.team_name || "Team",
-          is_scored: Boolean(existingScore),
-          score: existingScore,
-          has_pending_correction: pendingCorrectionSet.has(subId),
-        } as AssignedSubmissionItem;
+    // Filter by Event ID if provided
+    if (eventId && rows) {
+      rows = rows.filter((r) => {
+        const fields = r.fields || {};
+        return (
+          r.event_id === eventId ||
+          fields.event_id === eventId ||
+          fields.eventId === eventId ||
+          String(r.event_id || "").includes(eventId)
+        );
       });
     }
 
-    // Unscored first
-    items.sort((a, b) => Number(a.is_scored) - Number(b.is_scored));
+    // Check which submissions have already been scored
+    const ids = (rows || []).map((r) => r.id).filter(Boolean);
+    const scoredIds = new Set<string>();
+
+    if (ids.length > 0) {
+      for (const table of ["scores", "judge_scores", "evaluations"]) {
+        const { data: scores, error } = await supabase
+          .from(table)
+          .select("submission_id")
+          .in("submission_id", ids);
+
+        if (!error && scores) {
+          scores.forEach((s: any) => {
+            if (s.submission_id) scoredIds.add(s.submission_id);
+          });
+          break;
+        }
+      }
+    }
+
+    // Format final queue response
+    const items = (rows || []).map((row: any, i: number) => {
+      const fields = row.fields || {};
+      const teamName = Array.isArray(row.teams)
+        ? row.teams[0]?.name
+        : row.teams?.name;
+
+      const isScored =
+        scoredIds.has(row.id) ||
+        row.status === "scored" ||
+        row.is_scored === true;
+
+      return {
+        id: row.id,
+        title: (
+          row.title ||
+          fields.title ||
+          fields.project_title ||
+          "UNTITLED PROJECT"
+        ).toString(),
+        team_name: (
+          teamName ||
+          fields.team_name ||
+          fields.team ||
+          "UNKNOWN TEAM"
+        ).toString(),
+        track: (row.track || fields.track || "GENERAL").toString(),
+        status: isScored
+          ? "scored"
+          : row.status === "correction" || fields.needs_correction
+          ? "correction"
+          : "pending",
+        priority: i + 1,
+        submitted_at:
+          row.submitted_at || row.created_at || new Date().toISOString(),
+        created_at: row.created_at,
+        repo_url: row.repo_url || fields.repo_url || fields.repo || null,
+        demo_url: row.demo_url || fields.demo_url || null,
+        description: row.description || fields.description || "",
+        event_id: row.event_id || fields.event_id || eventId || null,
+      };
+    });
 
     return NextResponse.json({
       ok: true,
-      data: items,
-    } satisfies ApiResult<AssignedSubmissionItem[]>);
-  } catch {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Failed to load judge queue.",
-        code: "validation",
-      } satisfies ApiResult<never>,
-      { status: 500 }
-    );
+      items,
+      count: items.length,
+      eventId: eventId ?? null,
+      warning: queryError,
+    });
+  } catch (e: any) {
+    console.error("[api/judging/queue]", e);
+    return NextResponse.json({
+      ok: false,
+      items: [],
+      count: 0,
+      error: e?.message || "Failed to load judging queue",
+    });
   }
 }

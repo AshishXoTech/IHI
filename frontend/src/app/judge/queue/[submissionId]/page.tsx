@@ -21,17 +21,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   Lock,
-  Scale,
-  Zap,
-  Shield,
+  Activity,
   Gavel,
-  Star,
   Loader2,
   Send,
-  MessageSquare,
-  BarChart3,
   ExternalLink,
-  RotateCcw,
+  GitCommit,
 } from "lucide-react";
 import { AIBriefingPanel } from "@/components/dashboard/AIBriefingPanel";
 import { createClient } from "@/lib/supabase/client";
@@ -121,6 +116,15 @@ export default function JudgeScoringScreen({
     team_name: string;
   } | null>(null);
 
+  const [telemetry, setTelemetry] = useState<{
+    commitCount: number | string;
+    contributorCount: number | string;
+    velocity: string;
+    commitsLast4Weeks?: number;
+    source: "github" | "mock";
+    error?: string;
+  } | null>(null);
+
   const [criteria, setCriteria] = useState<RubricCriterion[]>(
     DEFAULT_FALLBACK_CRITERIA
   );
@@ -177,11 +181,14 @@ export default function JudgeScoringScreen({
           description:
             subData.description ||
             subData.fields?.description ||
+            subData.fields?.project_description ||
+            subData.fields?.tagline ||
             "No project description provided.",
           repo_url:
             subData.repo_url ||
             subData.fields?.repo_url ||
-            subData.fields?.repo ||
+            subData.fields?.repository_url ||
+            subData.fields?.github_url ||
             null,
           demo_url:
             subData.demo_url ||
@@ -191,15 +198,15 @@ export default function JudgeScoringScreen({
           team_name: (teamName || "NULL POINTERS").toUpperCase(),
         });
       } else {
-        // Fallback demo project for local evaluation
+        // Fallback exact match for demo mode
         setSubmission({
           id: submissionId,
-          title: submissionId === "sub-001" ? "SIGNAL FOUNDRY" : "PROJECT SUBMISSION",
+          title: "IHI INTELLIGENCE",
           description:
-            "Full-stack autonomous multi-agent pipeline leveraging Gemini 2.0 Flash for parallel reasoning. Features decoupled FastAPI queues and deterministic state guards.",
-          repo_url: "https://github.com/example/signal-foundry",
-          demo_url: "https://signal-foundry.example.com",
-          team_name: "NULL POINTERS",
+            "OPERATING SYSTEM FOR HACKATHONS\n\nHandles the complete operational layer of the hackathon. Including autonomous intelligence and high-throughput execution environments.",
+          repo_url: "https://github.com/AshishXoTech/IHI",
+          demo_url: "https://ihi-system.example.com",
+          team_name: "PURNAGYA.RAJ26NOV",
         });
       }
 
@@ -222,6 +229,67 @@ export default function JudgeScoringScreen({
   }, [loadData]);
 
   /* ========================================================================
+     TELEMETRY LOADING (Triggered after submission state is set)
+     ======================================================================== */
+  useEffect(() => {
+    if (!submission?.repo_url) {
+      setTelemetry({
+        commitCount: "—",
+        contributorCount: "—",
+        velocity: "N/A",
+        source: "mock",
+        error: "No repository URL provided.",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/github/repo-stats?repoUrl=${encodeURIComponent(
+            submission.repo_url!
+          )}`
+        );
+        const json = await res.json();
+        if (cancelled) return;
+
+        if (json.ok) {
+          setTelemetry({
+            commitCount: json.commitCount || 0,
+            contributorCount: json.contributorCount || 0,
+            velocity: json.velocity || "N/A",
+            commitsLast4Weeks: json.commitsLast4Weeks,
+            source: "github",
+          });
+        } else {
+          setTelemetry({
+            commitCount: "—",
+            contributorCount: "—",
+            velocity: "N/A",
+            source: "mock",
+            error: json.error || "GitHub stats unavailable",
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setTelemetry({
+            commitCount: "—",
+            contributorCount: "—",
+            velocity: "N/A",
+            source: "mock",
+            error: "Network error fetching stats",
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [submission?.repo_url]);
+
+  /* ========================================================================
      GSAP STICKY PIN (Desktop only)
      ======================================================================== */
   useEffect(() => {
@@ -238,7 +306,7 @@ export default function JudgeScoringScreen({
     mm.add("(min-width: 1024px)", () => {
       const st = ScrollTrigger.create({
         trigger: containerRef.current,
-        start: "top top+=96",
+        start: "top top+=40", // Lowered since duplicate top header is removed
         end: () =>
           `+=${
             leftPanelRef.current!.offsetHeight -
@@ -300,7 +368,6 @@ export default function JudgeScoringScreen({
       const json = await res.json();
 
       if (!res.ok || !json.ok) {
-        // Local demo mode fallback
         setExistingScore({
           total_score: calculateWeightedTotal(),
           created_at: new Date().toISOString(),
@@ -315,7 +382,6 @@ export default function JudgeScoringScreen({
       setSuccessMessage("Score submitted successfully. Viewing locked summary.");
       await loadData();
     } catch {
-      // Local fallback
       setExistingScore({
         total_score: calculateWeightedTotal(),
         created_at: new Date().toISOString(),
@@ -360,56 +426,10 @@ export default function JudgeScoringScreen({
      MAIN RENDER
      ======================================================================== */
   return (
-    <div className="relative min-h-screen bg-[var(--organizer-bg)] pb-24 text-[var(--organizer-ink-primary)] selection:bg-[var(--organizer-gold)] selection:text-white">
-      {/* CSS Override to force parent layout dark header into Museum-White style */}
-      <style>{`
-        header, 
-        nav,
-        [class*="bg-black"], 
-        [class*="bg-neutral-900"], 
-        [class*="bg-zinc-900"],
-        [class*="bg-[#0a0a0a]"],
-        [class*="bg-[#0A0A0A]"] {
-          background-color: #FFFFFF !important;
-          border-bottom: 2px solid #0A0A0A !important;
-          color: #0A0A0A !important;
-        }
-
-        header *, 
-        nav *,
-        [class*="bg-black"] *, 
-        [class*="bg-neutral-900"] *, 
-        [class*="bg-zinc-900"] * {
-          color: #0A0A0A !important;
-          border-color: #0A0A0A !important;
-        }
-
-        header button, 
-        header a, 
-        [class*="bg-black"] button, 
-        [class*="bg-black"] a {
-          background-color: #FFFFFF !important;
-          color: #0A0A0A !important;
-          border: 2px solid #0A0A0A !important;
-          border-radius: 0px !important;
-          box-shadow: 2px 2px 0px 0px #0A0A0A !important;
-          font-weight: 800 !important;
-          font-family: var(--font-mono), monospace !important;
-          text-transform: uppercase !important;
-        }
-
-        header button:hover, 
-        header a:hover, 
-        [class*="bg-black"] button:hover, 
-        [class*="bg-black"] a:hover {
-          background-color: #F7F3E3 !important;
-          transform: translate(-1px, -1px) !important;
-        }
-      `}</style>
-
+    <div className="relative min-h-screen bg-[var(--organizer-bg)] pb-24 text-[var(--organizer-ink-primary)] selection:bg-[var(--organizer-gold)] selection:text-[var(--organizer-ink-primary)]">
       {/* 40px Blueprint Grid Background */}
       <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-80"
+        className="pointer-events-none fixed inset-0 z-0 opacity-80"
         style={{
           backgroundImage: `
             linear-gradient(to right, var(--organizer-border) 1px, transparent 1px),
@@ -427,7 +447,7 @@ export default function JudgeScoringScreen({
         animate="animate"
         className="pointer-events-none absolute right-12 top-16 z-10 hidden h-16 w-16 items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] shadow-[6px_6px_0px_0px_var(--organizer-ink-primary)] lg:flex"
       >
-        <Gavel className="h-8 w-8 text-white" />
+        <Gavel className="h-8 w-8 text-[var(--organizer-ink-primary)]" />
       </motion.div>
       <motion.div
         variants={floatTwo}
@@ -437,9 +457,10 @@ export default function JudgeScoringScreen({
         <div className="h-5 w-5 rotate-45 bg-[var(--organizer-gold-deep)]" />
       </motion.div>
 
+      {/* MAIN CONTENT CONTAINER */}
       <div className="relative z-10 mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
         
-        {/* Main Header */}
+        {/* Workspace Title & Breadcrumbs */}
         <div className="mb-8 border-b-2 border-[var(--organizer-ink-primary)] pb-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold-light)] px-3 py-1 text-[10px] font-bold font-mono uppercase tracking-widest">
@@ -452,7 +473,7 @@ export default function JudgeScoringScreen({
                 className={`inline-flex items-center gap-1.5 border-2 border-[var(--organizer-ink-primary)] px-3 py-1 text-[10px] font-mono font-bold uppercase ${
                   existingScore
                     ? "bg-emerald-100 text-emerald-950"
-                    : "bg-[var(--organizer-gold)] text-white"
+                    : "bg-[var(--organizer-gold)] text-[var(--organizer-ink-primary)]"
                 }`}
                 style={{ boxShadow: "2px 2px 0px 0px var(--organizer-ink-primary)" }}
               >
@@ -462,7 +483,7 @@ export default function JudgeScoringScreen({
                   </>
                 ) : (
                   <>
-                    <Zap className="h-3 w-3" /> Scoring Active
+                    <Activity className="h-3 w-3" /> Scoring Active
                   </>
                 )}
               </span>
@@ -519,7 +540,7 @@ export default function JudgeScoringScreen({
           className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start relative"
         >
           
-          {/* ---------- LEFT COLUMN: PROJECT DETAILS + AI BRIEFING ---------- */}
+          {/* ---------- LEFT COLUMN: PROJECT DETAILS + TELEMETRY + AI BRIEFING ---------- */}
           <div
             ref={leftPanelRef}
             className="lg:col-span-5 xl:col-span-6 space-y-6"
@@ -552,11 +573,11 @@ export default function JudgeScoringScreen({
                       href={submission.repo_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-[var(--organizer-gold-deep)] hover:underline break-all"
+                      className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] border-2 border-[var(--organizer-ink-primary)] px-3 py-2 hover:bg-[var(--organizer-gold-light)] transition-colors break-all"
+                      style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
                     >
                       <Github className="h-3.5 w-3.5 shrink-0" />
                       {submission.repo_url}
-                      <ExternalLink className="h-3 w-3 shrink-0" />
                     </a>
                   ) : (
                     <span className="font-mono text-xs italic text-[var(--organizer-ink-muted)]">
@@ -566,7 +587,7 @@ export default function JudgeScoringScreen({
                 </div>
 
                 {submission?.demo_url && (
-                  <div>
+                  <div className="pt-2">
                     <div className="text-[9px] font-bold font-mono uppercase text-[var(--organizer-ink-muted)] mb-1">
                       LIVE DEMO ENDPOINT
                     </div>
@@ -574,22 +595,67 @@ export default function JudgeScoringScreen({
                       href={submission.demo_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-[var(--organizer-gold-deep)] hover:underline break-all"
+                      className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] border-2 border-[var(--organizer-ink-primary)] px-3 py-2 hover:bg-[var(--organizer-gold-light)] transition-colors break-all"
+                      style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
                     >
                       <Globe className="h-3.5 w-3.5 shrink-0" />
                       {submission.demo_url}
-                      <ExternalLink className="h-3 w-3 shrink-0" />
                     </a>
                   </div>
                 )}
               </div>
             </div>
 
+            {/* Repository Telemetry Block */}
+            <div
+              className="border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-6 transition-transform hover:-translate-y-1"
+              style={{ boxShadow: "6px 6px 0px 0px var(--organizer-ink-primary)" }}
+            >
+              <div className="flex items-center justify-between border-b-2 border-[var(--organizer-border)] pb-3 mb-4">
+                <span className="text-[10px] font-bold font-mono uppercase tracking-widest text-[var(--organizer-ink-muted)] flex items-center gap-2">
+                  <GitCommit className="w-4 h-4 text-[var(--organizer-gold-deep)]" />
+                  REPOSITORY TELEMETRY
+                </span>
+                <span className="text-[9px] font-mono font-bold uppercase border border-[var(--organizer-border)] px-2 py-0.5 text-[var(--organizer-ink-muted)]">
+                  {telemetry?.source === "github" ? "LIVE GITHUB API" : "UNAVAILABLE"}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="border-2 border-[var(--organizer-border)] p-3 text-center bg-[var(--organizer-bg)]">
+                  <span className="block text-3xl font-black font-display text-[var(--organizer-ink-primary)]">
+                    {telemetry?.commitCount ?? "…"}
+                  </span>
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[var(--organizer-ink-muted)] mt-1">Commits</span>
+                </div>
+                <div className="border-2 border-[var(--organizer-border)] p-3 text-center bg-[var(--organizer-bg)]">
+                  <span className="block text-3xl font-black font-display text-[var(--organizer-ink-primary)]">
+                    {telemetry?.contributorCount ?? "…"}
+                  </span>
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[var(--organizer-ink-muted)] mt-1">Contributors</span>
+                </div>
+                <div className="border-2 border-[var(--organizer-border)] p-3 text-center bg-[var(--organizer-bg)]">
+                  <span className={`block text-3xl font-black font-display ${telemetry?.velocity === 'N/A' ? 'text-[var(--organizer-ink-muted)]' : 'text-emerald-600'}`}>
+                    {telemetry?.velocity ?? "…"}
+                  </span>
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[var(--organizer-ink-muted)] mt-1">Velocity</span>
+                </div>
+              </div>
+
+              {telemetry?.error && (
+                <div className="mt-4 p-2 bg-red-50 border border-red-200 text-red-800 text-[10px] font-mono">
+                  {telemetry.error}
+                </div>
+              )}
+            </div>
+
             {/* AI Briefing Panel Integration */}
-            <AIBriefingPanel
-              submissionId={submissionId}
-              projectTitle={submission?.title || "PROJECT SUBMISSION"}
-            />
+            <div className="border-2 border-[var(--organizer-ink-primary)]" style={{ boxShadow: "6px 6px 0px 0px var(--organizer-gold)" }}>
+              <AIBriefingPanel
+                submissionId={submissionId}
+                projectTitle={submission?.title || "PROJECT SUBMISSION"}
+              />
+            </div>
           </div>
 
           {/* ---------- RIGHT COLUMN: RUBRIC (Sticky Pinned on Desktop) ---------- */}
@@ -821,7 +887,7 @@ export default function JudgeScoringScreen({
           ================================================================ */}
       {showCorrectionModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
           role="dialog"
           aria-modal="true"
           onClick={(e) => {
@@ -874,7 +940,7 @@ export default function JudgeScoringScreen({
                 type="button"
                 onClick={handleCorrectionRequest}
                 disabled={reason.trim().length < 10 || correctionSubmitting}
-                className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-5 py-2 text-xs font-bold font-mono uppercase text-white disabled:opacity-50"
+                className="inline-flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-5 py-2 text-xs font-bold font-mono uppercase text-[var(--organizer-ink-primary)] disabled:opacity-50"
                 style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
               >
                 {correctionSubmitting ? (

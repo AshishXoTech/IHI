@@ -111,98 +111,142 @@ const FALLBACK_QUEUE: QueueItem[] = [
 function QueueContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const eventId = searchParams.get("eventId") || "ashish01234";
+  const urlEventId = searchParams.get("eventId");
 
   const supabase = useMemo(() => createClient(), []);
   const [tab, setTab] = useState<QueueTab>("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [queue, setQueue] = useState<QueueItem[]>(FALLBACK_QUEUE);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [demoMode, setDemoMode] = useState(false);
+  
+  // Track active event ID
+  const [activeEventId, setActiveEventId] = useState<string>(urlEventId || "ashish01234");
 
   const loadQueue = useCallback(async () => {
     setAuthError(null);
+    setLoading(true);
+    
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      let user = session?.user ?? null;
+      // 1. Resolve exact Event ID (URL -> Cookie -> Fallback)
+      let resolvedEventId = urlEventId;
+      if (!resolvedEventId && typeof document !== "undefined") {
+        const cookieEvent = document.cookie
+          .split("; ")
+          .find((c) => c.startsWith("ihi_event_id="))
+          ?.split("=")[1];
+        if (cookieEvent) resolvedEventId = decodeURIComponent(cookieEvent);
+      }
+      resolvedEventId = resolvedEventId || "ashish01234";
+      setActiveEventId(resolvedEventId);
 
-      if (!user) {
-        const { data } = await supabase.auth.getUser();
-        user = data.user;
+      // 2. Fetch live data from API
+      const qs = `?eventId=${encodeURIComponent(resolvedEventId)}`;
+      const res = await fetch(`/api/judging/queue${qs}`, {
+        cache: "no-store",
+      });
+
+      // Read body even on error
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
       }
 
-      // Demo fallback so local UI is never blocked
-      if (!user) {
-        const demo =
-          typeof window !== "undefined"
-            ? localStorage.getItem("ihi_demo_judge")
-            : null;
-        if (demo) {
-          setDemoMode(true);
-          setQueue(FALLBACK_QUEUE);
-          setLoading(false);
-          return;
-        }
+      if (res.status === 401) {
         setAuthError("Authentication required.");
-        setDemoMode(true);
-        setQueue(FALLBACK_QUEUE);
-        setLoading(false);
+        setDemoMode(false);
+        setQueue([]);
         return;
       }
 
-      setDemoMode(false);
+      // Prefer items if present even when ok:false
+      const rows = json?.items || json?.data || json?.queue || [];
 
-      // Try live API
-      const qs = eventId ? `?eventId=${encodeURIComponent(eventId)}` : "";
-      const res = await fetch(`/api/judging/queue${qs}`);
-      if (res.ok) {
-        const json = await res.json();
-        const rows = json.items || json.data || json.queue || [];
-        if (Array.isArray(rows) && rows.length > 0) {
-          setQueue(
-            rows.map((r: any, i: number) => ({
-              id: r.id || r.submission_id || `sub-${i}`,
-              title: (
-                r.title ||
-                r.project_title ||
-                "UNTITLED PROJECT"
-              ).toUpperCase(),
-              teamName: (r.team_name || r.team || "UNKNOWN TEAM").toUpperCase(),
-              track: (r.track || "GENERAL").toUpperCase(),
-              status:
-                r.status === "scored" || r.is_scored
-                  ? "scored"
-                  : r.status === "correction" || r.needs_correction
-                  ? "correction"
-                  : "pending",
-              priority: r.priority ?? i + 1,
-              submittedAt:
-                r.submitted_at || r.created_at || new Date().toISOString(),
-              repoUrl: r.repo_url || null,
-            }))
-          );
-        } else {
-          setQueue(FALLBACK_QUEUE);
-        }
-      } else if (res.status === 401) {
-        setAuthError("Authentication required.");
-        setQueue(FALLBACK_QUEUE);
-        setDemoMode(true);
+      if (!res.ok && (!Array.isArray(rows) || rows.length === 0)) {
+        console.error("[queue] API error", res.status, json);
+        setAuthError(
+          json?.error ||
+            json?.warning ||
+            `Queue API failed (${res.status}). Check /api/judging/queue and Supabase env.`
+        );
+        setDemoMode(false);
+        setQueue([]);
+        return;
+      }
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        setDemoMode(false);
+        setAuthError(null);
+        setQueue(
+          rows.map((r: any, i: number) => ({
+            id: r.id || r.submission_id || `sub-${i}`,
+            title: String(r.title || r.project_title || "UNTITLED PROJECT").toUpperCase(),
+            teamName: String(r.team_name || r.team || "UNKNOWN TEAM").toUpperCase(),
+            track: String(r.track || "GENERAL").toUpperCase(),
+            status:
+              r.status === "scored" || r.is_scored
+                ? "scored"
+                : r.status === "correction" || r.needs_correction
+                ? "correction"
+                : "pending",
+            priority: r.priority ?? i + 1,
+            submittedAt:
+              r.submitted_at || r.created_at || new Date().toISOString(),
+            repoUrl: r.repo_url || null,
+          }))
+        );
       } else {
-        setQueue(FALLBACK_QUEUE);
+        setDemoMode(false);
+        setAuthError(null);
+        setQueue([]);
+        if (json?.warning || json?.error) {
+          console.warn("[queue]", json.warning || json.error);
+        }
+      }
+      // 3. Map real data
+      if (Array.isArray(rows) && rows.length > 0) {
+        setDemoMode(false);
+        setQueue(
+          rows.map((r: any, i: number) => ({
+            id: r.id || r.submission_id || `sub-${i}`,
+            title: String(r.title || r.project_title || "UNTITLED PROJECT").toUpperCase(),
+            teamName: String(r.team_name || r.team || "UNKNOWN TEAM").toUpperCase(),
+            track: String(r.track || "GENERAL").toUpperCase(),
+            status:
+              r.status === "scored" || r.is_scored
+                ? "scored"
+                : r.status === "correction" || r.needs_correction
+                ? "correction"
+                : "pending",
+            priority: r.priority ?? i + 1,
+            submittedAt: r.submitted_at || r.created_at || new Date().toISOString(),
+            repoUrl: r.repo_url || null,
+          }))
+        );
+      } else {
+        // Empty DB means Empty Queue (no fake data override)
+        setDemoMode(false);
+        setQueue([]);
       }
     } catch (err) {
-      console.error(err);
-      setQueue(FALLBACK_QUEUE);
-      setDemoMode(true);
+      console.error("[Queue Load Error]:", err);
+      // Only fall back to local demo queue on catastrophic failure
+      const demoActive = typeof window !== "undefined" ? localStorage.getItem("ihi_demo_judge") : null;
+      if (demoActive) {
+        setDemoMode(true);
+        setQueue(FALLBACK_QUEUE);
+      } else {
+        setAuthError("Failed to fetch live queue data.");
+        setQueue([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [supabase, eventId]);
+  }, [urlEventId]);
 
   useEffect(() => {
     loadQueue();
@@ -283,7 +327,7 @@ function QueueContent() {
               <p className="mt-2 max-w-2xl text-xs font-mono uppercase tracking-wide text-[var(--organizer-ink-muted)]">
                 Evaluate submissions for event{" "}
                 <span className="font-black text-[var(--organizer-ink-primary)]">
-                  {eventId}
+                  {activeEventId}
                 </span>
                 . Priority projects appear first.
               </p>
@@ -291,7 +335,7 @@ function QueueContent() {
                 <Shield className="h-3.5 w-3.5 text-[var(--organizer-gold-deep)]" />
                 Scoped event:
                 <span className="bg-[var(--organizer-gold)] px-1.5 py-0.5 text-[var(--organizer-ink-primary)]">
-                  {eventId}
+                  {activeEventId}
                 </span>
               </div>
             </div>
@@ -464,7 +508,7 @@ function QueueContent() {
               Queue Empty.
             </h2>
             <p className="mt-2 text-xs font-mono text-[var(--organizer-ink-muted)]">
-              No submissions match this filter for event {eventId}.
+              No submissions match this filter for event {activeEventId}.
             </p>
           </div>
         ) : (
