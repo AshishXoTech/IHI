@@ -1,130 +1,151 @@
+// frontend/src/components/landing/LandingNav.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { clsx } from "clsx";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X, ArrowRight } from "lucide-react";
 
 export function LandingNav() {
-  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 16);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const sectionLinks = [
-    { label: "Problem", href: "#problem" },
-    { label: "Solution", href: "#solution" },
-    { label: "Features", href: "#features" },
-    { label: "How It Works", href: "#how-it-works" },
-    { label: "Pricing", href: "#pricing" },
-  ];
-
-  const portalLinks = [
-    { label: "Hackathons", href: "/hackathons" },
-    { label: "Sponsors", href: "/sponsors" },
-    { label: "Become a Sponsor", href: "/sponsors/register" },
-    { label: "Judge Portal", href: "/judge-login" },
+  const navLinks = [
+    { name: "Problem", href: "#problem" },
+    { name: "Solution", href: "#solution" },
+    { name: "Features", href: "#features" },
+    { name: "How It Works", href: "#how-it-works" },
+    { name: "Pricing", href: "#pricing" },
+    { name: "Hackathons", href: "/hackathons" },
+    { name: "Sponsors", href: "/sponsors" },
+    { name: "Become a Sponsor", href: "/sponsors#apply" },
   ];
 
   return (
-    <header
-      className={clsx(
-        "fixed inset-x-0 top-0 z-50 transition-all duration-300",
-        scrolled
-          ? "border-b border-gray-200/80 bg-white/90 py-3 shadow-[0_4px_30px_rgba(0,0,0,0.04)] backdrop-blur-xl"
-          : "bg-transparent py-5"
-      )}
+    <nav
+      className="sticky top-0 z-50 w-full border-b-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] transition-all"
+      style={{
+        backgroundColor: "var(--organizer-surface)",
+      }}
     >
-      <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 lg:px-12">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
         
-        {/* ── Premium Logo Block ── */}
-        <Link href="/" className="group flex flex-col items-start gap-0.5">
-          <div className="flex items-center gap-1.5">
-            <span className="font-display text-[1.75rem] font-black leading-none text-gray-300 transition-colors group-hover:text-gray-400">
-              {"{"}
-            </span>
-
-            <div className="flex items-baseline gap-[3px]">
-              <span
-                className="font-display text-[2rem] font-black leading-none tracking-tight transition-transform group-hover:-translate-y-0.5"
-                style={{
-                  color: "#E4574C",
-                  textShadow: "2.5px 2.5px 0 #B8362B",
-                }}
-              >
-                I
-              </span>
-              <span
-                className="font-display text-[2rem] font-black leading-none tracking-tight transition-transform group-hover:-translate-y-0.5"
-                style={{
-                  color: "#2FB67C",
-                  textShadow: "2.5px 2.5px 0 #1E875A",
-                }}
-              >
-                H
-              </span>
-              <span
-                className="font-display text-[2rem] font-black leading-none tracking-tight transition-transform group-hover:-translate-y-0.5"
-                style={{
-                  color: "#3E6FF3",
-                  textShadow: "2.5px 2.5px 0 #2A50BD",
-                }}
-              >
-                I
-              </span>
-            </div>
-
-            <span className="font-display text-[1.75rem] font-black leading-none text-gray-300 transition-colors group-hover:text-gray-400">
-              {"}"}
-            </span>
-          </div>
-
-          <div className="ml-1 h-[2px] w-0 rounded-full bg-gold transition-all duration-500 group-hover:w-[72px]" />
+        {/* ═══════════════════════════════════════
+            LEFT: Reverted Monochrome {IHI} Logo
+            ═══════════════════════════════════════ */}
+        <Link
+          href="/"
+          className="group flex items-center gap-2 transition-transform hover:scale-105"
+        >
+          <span className="font-display text-2xl font-black tracking-tighter text-[var(--organizer-ink-primary)]">
+            {"{IHI}"}
+          </span>
+          <span className="hidden sm:inline-block border-l-2 border-[var(--organizer-border)] pl-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--organizer-ink-muted)]">
+            OS 2.0
+          </span>
         </Link>
 
-        {/* ── Desktop Nav ── */}
-        <nav className="hidden items-center gap-7 lg:flex">
-          {sectionLinks.map((item) => (
+        {/* ═══════════════════════════════════════
+            CENTER: Desktop Navigation Links (No Judge Portal)
+            ═══════════════════════════════════════ */}
+        <div className="hidden xl:flex items-center gap-6 text-xs font-mono font-bold uppercase tracking-wider text-[var(--organizer-ink-secondary)]">
+          {navLinks.map((link) => (
             <Link
-              key={item.label}
-              href={item.href}
-              className="relative font-body text-[13px] font-semibold tracking-wide text-gray-600 transition-colors hover:text-black after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:rounded-full after:bg-gold after:transition-all after:duration-300 hover:after:w-full"
+              key={link.name}
+              href={link.href}
+              className="transition-colors hover:text-[var(--organizer-gold-deep)] hover:underline underline-offset-4"
             >
-              {item.label}
+              {link.name}
             </Link>
           ))}
+        </div>
 
-          <span className="h-4 w-px bg-gray-200" aria-hidden />
+        {/* Medium Screen Nav */}
+        <div className="hidden lg:flex xl:hidden items-center gap-4 text-xs font-mono font-bold uppercase tracking-wider text-[var(--organizer-ink-secondary)]">
+          <Link href="#features" className="hover:text-[var(--organizer-gold-deep)]">Features</Link>
+          <Link href="#pricing" className="hover:text-[var(--organizer-gold-deep)]">Pricing</Link>
+          <Link href="/hackathons" className="hover:text-[var(--organizer-gold-deep)]">Hackathons</Link>
+          <Link href="/sponsors" className="hover:text-[var(--organizer-gold-deep)]">Sponsors</Link>
+        </div>
 
-          {portalLinks.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="relative font-body text-[13px] font-semibold tracking-wide text-gray-600 transition-colors hover:text-black after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:rounded-full after:bg-gold after:transition-all after:duration-300 hover:after:w-full"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        {/* ── CTAs ── */}
-        <div className="flex items-center gap-4">
+        {/* ═══════════════════════════════════════
+            RIGHT: Auth & CTA
+            ═══════════════════════════════════════ */}
+        <div className="hidden sm:flex items-center gap-3">
           <Link
             href="/login"
-            className="hidden font-body text-[13px] font-semibold text-gray-600 transition-colors hover:text-black sm:block"
+            className="px-3 py-2 font-mono text-xs font-bold uppercase tracking-widest text-[var(--organizer-ink-primary)] transition-colors hover:text-[var(--organizer-gold-deep)]"
           >
-            Sign in
+            Sign In
           </Link>
+
           <Link
-            href="/signup"
-            className="rounded-xl bg-black px-5 py-2.5 font-body text-[13px] font-bold tracking-wide text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-gray-900 hover:shadow-lg"
+            href="/login"
+            className="group flex items-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest text-[var(--organizer-ink-primary)] transition-all hover:-translate-y-0.5 hover:bg-[var(--organizer-gold-deep)] hover:text-white"
+            style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
           >
-            Get started
+            <span>Get Started</span>
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
+
+        {/* MOBILE MENU TOGGLE */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="flex lg:hidden items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] p-2"
+          style={{ boxShadow: "2px 2px 0px 0px var(--organizer-ink-primary)" }}
+          aria-label="Toggle navigation menu"
+        >
+          {mobileMenuOpen ? (
+            <X className="h-5 w-5 text-[var(--organizer-ink-primary)]" />
+          ) : (
+            <Menu className="h-5 w-5 text-[var(--organizer-ink-primary)]" />
+          )}
+        </button>
       </div>
-    </header>
+
+      {/* MOBILE DROPDOWN */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="border-b-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-surface)] lg:hidden"
+          >
+            <div className="flex flex-col space-y-3 px-6 py-6 font-mono text-xs font-bold uppercase tracking-widest text-[var(--organizer-ink-primary)]">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="border-b border-[var(--organizer-border)] pb-2 transition-colors hover:text-[var(--organizer-gold-deep)]"
+                >
+                  {link.name}
+                </Link>
+              ))}
+
+              <div className="pt-4 flex flex-col gap-3">
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-bg)] py-3 text-center"
+                >
+                  Sign In
+                </Link>
+
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 border-2 border-[var(--organizer-ink-primary)] bg-[var(--organizer-gold)] py-3 text-center"
+                  style={{ boxShadow: "3px 3px 0px 0px var(--organizer-ink-primary)" }}
+                >
+                  Get Started <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
   );
 }
